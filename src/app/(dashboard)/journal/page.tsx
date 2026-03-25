@@ -9,7 +9,7 @@ import { AddJournalEntryDialog } from "@/components/shared/add-journal-entry-dia
 import { Trash2, Calendar, TrendingUp, AlertTriangle } from "lucide-react";
 import { DeleteJournalEntryButton } from "@/components/shared/delete-journal-entry-button";
 
-export const runtime = "edge";
+
 
 export default async function JournalPage() {
   const db = getDb();

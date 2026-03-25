@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { User } from "lucide-react";
 
-export const runtime = "edge";
+
 
 export default async function ProfilePage() {
   const db = getDb();

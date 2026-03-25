@@ -5,7 +5,7 @@ import { WatchlistRepository } from "@/db/repositories/watchlist";
 import { IntelligenceRepository } from "@/db/repositories/intelligence";
 import { AllocationEngine, AllocationStyle } from "@/core/allocation/engine";
 
-export const runtime = "edge";
+
 
 export async function POST(request: Request) {
   const db = getDb();

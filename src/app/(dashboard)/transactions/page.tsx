@@ -6,7 +6,7 @@ import { PortfolioRepository } from "@/db/repositories/portfolio";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-export const runtime = "edge";
+
 
 export default async function TransactionsPage() {
   const db = getDb();

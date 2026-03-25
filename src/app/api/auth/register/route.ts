@@ -6,7 +6,7 @@ import { initializeLucia } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 
-export const runtime = "edge";
+
 
 export async function POST(request: Request) {
   const formData = await request.formData();

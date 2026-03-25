@@ -6,7 +6,7 @@ import { PortfolioRepository } from "@/db/repositories/portfolio";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddTransactionDialog } from "@/components/shared/add-transaction-dialog";
 
-export const runtime = "edge";
+
 
 export default async function PortfolioPage() {
   const db = getDb();

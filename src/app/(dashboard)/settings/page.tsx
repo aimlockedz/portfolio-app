@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 
-export const runtime = "edge";
+
 
 export default async function SettingsPage() {
   const db = getDb();

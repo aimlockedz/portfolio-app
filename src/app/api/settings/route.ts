@@ -3,7 +3,7 @@ import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
 import { ProfileRepository } from "@/db/repositories/profile";
 
-export const runtime = "edge";
+
 
 export async function POST(request: Request) {
   const db = getDb();

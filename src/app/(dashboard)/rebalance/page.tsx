@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, ArrowRightLeft } from "lucide-react";
 
-export const runtime = "edge";
+
 
 export default async function RebalancePage() {
   const db = getDb();

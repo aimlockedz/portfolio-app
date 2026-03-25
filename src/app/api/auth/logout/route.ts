@@ -2,7 +2,7 @@ import { initializeLucia } from "@/lib/auth";
 import { getDb } from "@/db/db";
 import { cookies } from "next/headers";
 
-export const runtime = "edge";
+
 
 export async function POST() {
   const db = getDb();

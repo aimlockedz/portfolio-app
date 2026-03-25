@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { DeleteWatchlistItemButton } from "@/components/shared/delete-watchlist-item-button";
 
-export const runtime = "edge";
+
 
 export default async function WatchlistPage() {
   const db = getDb();

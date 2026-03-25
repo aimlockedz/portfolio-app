@@ -1,6 +1,6 @@
 import { TASignals } from "@/core/ta/signals";
 
-export const runtime = "edge";
+
 
 export async function POST(request: Request) {
   try {

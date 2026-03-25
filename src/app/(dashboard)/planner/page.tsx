@@ -7,7 +7,7 @@ import { PlannerForm } from "@/components/shared/planner-form";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-export const runtime = "edge";
+
 
 export default async function PlannerPage() {
   const db = getDb();

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { MockNewsProvider } from "@/services/news/mock-provider";
 import { Newspaper } from "lucide-react";
 
-export const runtime = "edge";
+
 
 export default async function NewsPage() {
   const provider = new MockNewsProvider();

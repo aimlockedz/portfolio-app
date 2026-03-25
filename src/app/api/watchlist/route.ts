@@ -3,7 +3,7 @@ import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
 import { WatchlistRepository } from "@/db/repositories/watchlist";
 
-export const runtime = "edge";
+
 
 export async function POST(request: Request) {
   const db = getDb();
