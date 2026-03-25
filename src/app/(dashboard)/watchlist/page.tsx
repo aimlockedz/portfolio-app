@@ -13,7 +13,7 @@ import { DeleteWatchlistItemButton } from "@/components/shared/delete-watchlist-
 export const runtime = "edge";
 
 export default async function WatchlistPage() {
-  const db = getDb((globalThis as any).process.env as any);
+  const db = getDb();
   const lucia = initializeLucia(db);
   
   const cookieStore = await cookies();

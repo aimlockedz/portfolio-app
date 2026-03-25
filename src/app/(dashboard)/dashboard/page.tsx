@@ -12,7 +12,7 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const db = getDb((globalThis as any).process.env as any);
+  const db = getDb();
   const lucia = initializeLucia(db);
   
   const cookieStore = await cookies();
