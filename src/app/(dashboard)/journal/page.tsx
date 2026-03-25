@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { AddJournalEntryDialog } from "@/components/shared/add-journal-entry-dialog";
 import { Trash2, Calendar, TrendingUp, AlertTriangle } from "lucide-react";
 import { DeleteJournalEntryButton } from "@/components/shared/delete-journal-entry-button";
+export const dynamic = "force-dynamic";
 
 
 

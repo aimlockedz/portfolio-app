@@ -4,6 +4,7 @@ import { users } from "@/db/schema";
 import { initializeLucia } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
+export const dynamic = "force-dynamic";
 
 
 

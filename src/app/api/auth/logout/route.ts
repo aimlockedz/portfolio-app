@@ -1,6 +1,7 @@
 import { initializeLucia } from "@/lib/auth";
 import { getDb } from "@/db/db";
 import { cookies } from "next/headers";
+export const dynamic = "force-dynamic";
 
 
 

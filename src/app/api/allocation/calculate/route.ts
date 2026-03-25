@@ -4,6 +4,7 @@ import { initializeLucia } from "@/lib/auth";
 import { WatchlistRepository } from "@/db/repositories/watchlist";
 import { IntelligenceRepository } from "@/db/repositories/intelligence";
 import { AllocationEngine, AllocationStyle } from "@/core/allocation/engine";
+export const dynamic = "force-dynamic";
 
 
 

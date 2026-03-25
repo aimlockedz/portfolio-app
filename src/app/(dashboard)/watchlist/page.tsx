@@ -9,6 +9,7 @@ import { AddWatchlistDialog } from "@/components/shared/add-watchlist-dialog";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { DeleteWatchlistItemButton } from "@/components/shared/delete-watchlist-item-button";
+export const dynamic = "force-dynamic";
 
 
 

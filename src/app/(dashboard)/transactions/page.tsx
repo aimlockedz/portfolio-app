@@ -5,6 +5,7 @@ import { initializeLucia } from "@/lib/auth";
 import { PortfolioRepository } from "@/db/repositories/portfolio";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+export const dynamic = "force-dynamic";
 
 
 

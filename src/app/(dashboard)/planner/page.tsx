@@ -6,6 +6,7 @@ import { WatchlistRepository } from "@/db/repositories/watchlist";
 import { PlannerForm } from "@/components/shared/planner-form";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+export const dynamic = "force-dynamic";
 
 
 

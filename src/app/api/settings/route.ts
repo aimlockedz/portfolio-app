@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
 import { ProfileRepository } from "@/db/repositories/profile";
+export const dynamic = "force-dynamic";
 
 
 

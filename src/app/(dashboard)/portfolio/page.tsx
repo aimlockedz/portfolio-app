@@ -5,6 +5,7 @@ import { initializeLucia } from "@/lib/auth";
 import { PortfolioRepository } from "@/db/repositories/portfolio";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddTransactionDialog } from "@/components/shared/add-transaction-dialog";
+export const dynamic = "force-dynamic";
 
 
 
