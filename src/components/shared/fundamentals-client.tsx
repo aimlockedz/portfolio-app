@@ -309,11 +309,6 @@ export function FundamentalsClient({ symbol }: { symbol: string }) {
     return (
       <div className="rounded-2xl bg-[var(--card)] p-8 text-center">
         <p className="text-sm text-[var(--on-surface-variant)]">{error}</p>
-        {error.includes("FMP_API_KEY") && (
-          <p className="text-xs text-[var(--on-surface-variant)] mt-2">
-            Add <code className="bg-[var(--surface-container-high)] px-1 rounded">FMP_API_KEY</code> to Vercel Environment Variables
-          </p>
-        )}
       </div>
     );
   }
