@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   ArrowRightLeft,
+  Network,
 } from "lucide-react";
 import { StockSearch } from "./stock-search";
 
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/watchlist", label: "Watchlist", icon: TrendingUp },
   { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/news", label: "News", icon: Newspaper },
+  { href: "/exposure", label: "Exposure", icon: Network },
 ];
 
 const bottomItems = [

@@ -45,10 +45,9 @@ export function StockSymbolInput({
     try {
       const res = await fetch(`/api/stock/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setResults(data);
-        setIsOpen(data.length > 0);
-      }
+      const list = Array.isArray(data) ? data : (data.results || []);
+      setResults(list);
+      setIsOpen(list.length > 0);
     } catch { setResults([]); }
     finally { setIsLoading(false); }
   }, []);
