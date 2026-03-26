@@ -4,7 +4,9 @@ import type { NextConfig } from "next";
 initOpenNextCloudflareForDev();
 
 const nextConfig: NextConfig = {
-  reactCompiler: true,
+  experimental: {
+    reactCompiler: true,
+  },
   transpilePackages: ["radix-ui", "@radix-ui"],
   webpack: (config) => {
     config.module.rules.push({
