@@ -3,16 +3,15 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
 import { PortfolioRepository } from "@/db/repositories/portfolio";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddTransactionDialog } from "@/components/shared/add-transaction-dialog";
+import { PortfolioTable } from "@/components/shared/portfolio-table";
+
 export const dynamic = "force-dynamic";
-
-
 
 export default async function PortfolioPage() {
   const db = getDb();
   const lucia = initializeLucia(db);
-  
+
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(lucia.sessionCookieName)?.value ?? null;
   if (!sessionId) {
@@ -35,36 +34,7 @@ export default async function PortfolioPage() {
       </div>
 
       <div className="border rounded-lg bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Symbol</TableHead>
-              <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Avg Cost</TableHead>
-              <TableHead className="text-right">Total Cost</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {holdings.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  No holdings yet. Add a transaction to get started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              holdings.map((holding) => (
-                <TableRow key={holding.id}>
-                  <TableCell className="font-bold">{holding.symbol}</TableCell>
-                  <TableCell className="text-right">{holding.totalQuantity}</TableCell>
-                  <TableCell className="text-right">${(holding.averageCost / 100).toFixed(2)}</TableCell>
-                  <TableCell className="text-right">
-                    ${((holding.totalQuantity * holding.averageCost) / 100).toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        <PortfolioTable holdings={holdings} />
       </div>
     </div>
   );

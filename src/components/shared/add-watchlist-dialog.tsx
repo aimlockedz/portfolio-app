@@ -8,15 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { StockSymbolInput } from "./stock-symbol-input";
 
 export function AddWatchlistDialog() {
   const [open, setOpen] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const router = useRouter();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    
+
     const response = await fetch("/api/watchlist", {
       method: "POST",
       body: formData,
@@ -24,12 +26,17 @@ export function AddWatchlistDialog() {
 
     if (response.ok) {
       setOpen(false);
+      setCurrentPrice(null);
       router.refresh();
     }
   }
 
+  function handleSymbolSelect(symbol: string, price?: number) {
+    if (price) setCurrentPrice(price);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setCurrentPrice(null); }}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <Plus className="mr-2 h-4 w-4" /> Add to Watchlist
@@ -40,14 +47,30 @@ export function AddWatchlistDialog() {
           <DialogHeader>
             <DialogTitle>Add to Watchlist</DialogTitle>
             <DialogDescription>
-              Add a symbol to your watchlist to monitor its performance.
+              Search for a stock to monitor its performance.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="symbol" className="text-right">Symbol</Label>
-              <Input id="symbol" name="symbol" placeholder="TSLA" className="col-span-3" required />
+              <StockSymbolInput
+                name="symbol"
+                placeholder="Search TSLA, AAPL..."
+                onSymbolSelect={handleSymbolSelect}
+              />
             </div>
+
+            {/* Show current market price */}
+            {currentPrice !== null && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <div className="text-right" />
+                <div className="col-span-3 rounded-md bg-accent/50 px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Current Price: </span>
+                  <span className="font-bold text-green-500">${currentPrice.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="convictionLevel" className="text-right">Conviction</Label>
               <Select name="convictionLevel" defaultValue="3">

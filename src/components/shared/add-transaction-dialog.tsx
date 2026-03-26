@@ -8,16 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { StockSymbolInput } from "./stock-symbol-input";
 
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState("");
   const router = useRouter();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    
-    // We will build an action or API route for this
+
     const response = await fetch("/api/portfolio/transactions", {
       method: "POST",
       body: formData,
@@ -25,12 +27,21 @@ export function AddTransactionDialog() {
 
     if (response.ok) {
       setOpen(false);
+      setCurrentPrice(null);
+      setSelectedSymbol("");
       router.refresh();
     }
   }
 
+  function handleSymbolSelect(symbol: string, price?: number) {
+    setSelectedSymbol(symbol);
+    if (price) {
+      setCurrentPrice(price);
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setCurrentPrice(null); setSelectedSymbol(""); } }}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" /> Add Transaction
@@ -41,14 +52,29 @@ export function AddTransactionDialog() {
           <DialogHeader>
             <DialogTitle>Add Transaction</DialogTitle>
             <DialogDescription>
-              Enter the details of your stock transaction here.
+              Search for a stock symbol and enter transaction details.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="symbol" className="text-right">Symbol</Label>
-              <Input id="symbol" name="symbol" placeholder="AAPL" className="col-span-3" required />
+              <StockSymbolInput
+                name="symbol"
+                onSymbolSelect={handleSymbolSelect}
+              />
             </div>
+
+            {/* Show current market price when symbol selected */}
+            {currentPrice !== null && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <div className="text-right" />
+                <div className="col-span-3 rounded-md bg-accent/50 px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Market Price: </span>
+                  <span className="font-bold text-green-500">${currentPrice.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="type" className="text-right">Type</Label>
               <Select name="type" defaultValue="BUY">
@@ -67,7 +93,16 @@ export function AddTransactionDialog() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="price" className="text-right">Price</Label>
-              <Input id="price" name="price" type="number" step="0.01" className="col-span-3" required />
+              <Input
+                id="price"
+                name="price"
+                type="number"
+                step="0.01"
+                className="col-span-3"
+                required
+                defaultValue={currentPrice?.toFixed(2) ?? ""}
+                key={currentPrice}
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="date" className="text-right">Date</Label>
