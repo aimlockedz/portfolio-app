@@ -1,8 +1,16 @@
-import { drizzle } from "drizzle-orm/d1";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { drizzle } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
 import * as schema from "./schema";
 
+let db: ReturnType<typeof drizzle> | null = null;
+
 export function getDb() {
-  const { env } = getCloudflareContext();
-  return drizzle((env as any).DB, { schema });
+  if (!db) {
+    const client = createClient({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+    db = drizzle(client, { schema });
+  }
+  return db;
 }

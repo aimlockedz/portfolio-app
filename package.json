@@ -7,13 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build:worker": "opennextjs-cloudflare build",
-    "preview": "opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@lucia-auth/adapter-drizzle": "^1.1.0",
-    "@opennextjs/cloudflare": "^1.17.3",
     "@oslojs/crypto": "^1.0.1",
     "@oslojs/encoding": "^1.1.0",
     "@types/bcryptjs": "^2.4.6",
@@ -29,22 +27,19 @@
     "radix-ui": "^1.4.3",
     "react": "^19.1.5",
     "react-dom": "^19.1.5",
+    "@libsql/client": "^0.17.2",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260317.1",
-    "@libsql/client": "^0.17.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19.1.5",
     "@types/react-dom": "^19.1.5",
     "babel-plugin-react-compiler": "1.0.0",
     "drizzle-kit": "^0.31.10",
-    "esbuild": "^0.25.4",
     "eslint": "^9",
     "eslint-config-next": "^15.3.9",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "wrangler": "^4.77.0"
+    "typescript": "^5"
   }
 }
