@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { StockChart } from "./stock-chart";
+import { FundamentalsClient } from "./fundamentals-client";
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import Link from "next/link";
 
@@ -173,6 +174,7 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
   const [showEMA, setShowEMA] = useState<Record<string, boolean>>({
     ema9: true, ema21: true, ema50: false, ema200: false,
   });
+  const [activeTab, setActiveTab] = useState<"chart" | "fundamentals">("chart");
 
   useEffect(() => {
     async function load() {
@@ -259,7 +261,28 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
         </div>
       </div>
 
-      {/* Chart Card */}
+      {/* Tab Switcher */}
+      <div className="flex gap-2">
+        {(["chart", "fundamentals"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-5 py-2 rounded-full text-sm font-bold transition-all capitalize ${
+              activeTab === tab
+                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                : "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)] hover:bg-[var(--card)]"
+            }`}
+          >
+            {tab === "chart" ? "Chart" : "Fundamentals"}
+          </button>
+        ))}
+      </div>
+
+      {/* Fundamentals Tab */}
+      {activeTab === "fundamentals" && <FundamentalsClient symbol={symbol} />}
+
+      {/* Chart + TA sections (hidden when Fundamentals tab active) */}
+      {activeTab === "chart" && (<>
       <div className="rounded-2xl bg-[var(--card)] shadow-[0_2px_32px_rgba(0,0,0,0.04)] p-6">
         {/* Controls Row */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -619,6 +642,7 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
           })()}
         </div>
       )}
+      </>)}
     </div>
   );
 }
