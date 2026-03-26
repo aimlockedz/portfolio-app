@@ -67,6 +67,11 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Temporary: dump first record's keys + values for field mapping
+    const _dbgInc = incArr[0] ? Object.fromEntries(Object.entries(incArr[0]).map(([k, v]) => [k, v])) : {};
+    const _dbgBal = balArr[0] ? Object.fromEntries(Object.entries(balArr[0]).map(([k, v]) => [k, v])) : {};
+    const _dbgCf = cfArr[0] ? Object.fromEntries(Object.entries(cfArr[0]).map(([k, v]) => [k, v])) : {};
+
     const periods = incArr.map((inc: any, i: number) => {
       const bal: any = balArr[i] || {};
       const cf: any = cfArr[i] || {};
@@ -130,7 +135,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ symbol, periods: periods.reverse() });
+    return NextResponse.json({ symbol, periods: periods.reverse(), _debug: { income: _dbgInc, balance: _dbgBal, cashflow: _dbgCf } });
   } catch (err) {
     return NextResponse.json({
       error: "Failed to fetch financials",
