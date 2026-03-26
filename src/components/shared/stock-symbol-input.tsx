@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 
 interface StockResult {
@@ -30,7 +29,6 @@ export function StockSymbolInput({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -42,12 +40,7 @@ export function StockSymbolInput({
   }, []);
 
   const searchStocks = useCallback(async (q: string) => {
-    if (q.length < 1) {
-      setResults([]);
-      setIsOpen(false);
-      return;
-    }
-
+    if (q.length < 1) { setResults([]); setIsOpen(false); return; }
     setIsLoading(true);
     try {
       const res = await fetch(`/api/stock/search?q=${encodeURIComponent(q)}`);
@@ -56,79 +49,67 @@ export function StockSymbolInput({
         setResults(data);
         setIsOpen(data.length > 0);
       }
-    } catch {
-      setResults([]);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { setResults([]); }
+    finally { setIsLoading(false); }
   }, []);
 
   function handleInputChange(value: string) {
     const upper = value.toUpperCase();
     setQuery(upper);
     setSelectedSymbol("");
-
-    // Debounce search
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      searchStocks(upper);
-    }, 300);
+    debounceRef.current = setTimeout(() => searchStocks(upper), 300);
   }
 
   async function handleSelect(item: StockResult) {
-    setQuery(`${item.symbol} — ${item.description}`);
+    setQuery(`${item.symbol} - ${item.description}`);
     setSelectedSymbol(item.symbol);
     setIsOpen(false);
-
-    // Fetch current price
     try {
       const res = await fetch(`/api/stock/quote?symbol=${item.symbol}`);
       const data = await res.json();
-      if (data.currentPrice && onSymbolSelect) {
-        onSymbolSelect(item.symbol, data.currentPrice);
-      } else if (onSymbolSelect) {
-        onSymbolSelect(item.symbol);
-      }
-    } catch {
-      if (onSymbolSelect) onSymbolSelect(item.symbol);
-    }
+      if (data.currentPrice && onSymbolSelect) onSymbolSelect(item.symbol, data.currentPrice);
+      else if (onSymbolSelect) onSymbolSelect(item.symbol);
+    } catch { if (onSymbolSelect) onSymbolSelect(item.symbol); }
   }
 
   return (
-    <div ref={wrapperRef} className="relative col-span-3">
-      {/* Hidden input for form submission */}
+    <div ref={wrapperRef} className="relative w-full">
       <input type="hidden" name={name} value={selectedSymbol} />
-
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--on-surface-variant)]" />
+        <input
           placeholder={placeholder}
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
-          className="pl-8"
+          className="w-full rounded-xl bg-[var(--surface-container-high)] px-10 py-2.5 text-sm font-medium placeholder:text-[var(--on-surface-variant)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:bg-[var(--card)] transition-all"
           required={required}
           autoComplete="off"
         />
         {isLoading && (
-          <div className="absolute right-2.5 top-2.5">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
           </div>
         )}
       </div>
 
-      {/* Dropdown results */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-[100] mt-2 w-full rounded-xl bg-[var(--card)] shadow-[0_8px_32px_rgba(0,0,0,0.12)] max-h-56 overflow-auto border border-[var(--border)]">
           {results.map((item) => (
             <button
               key={item.symbol}
               type="button"
-              className="flex w-full items-center justify-between px-3 py-2.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-0"
+              className="flex w-full items-center justify-between px-4 py-3 text-sm hover:bg-[var(--surface-container-low)] transition-colors first:rounded-t-xl last:rounded-b-xl"
               onClick={() => handleSelect(item)}
             >
-              <span className="font-bold text-primary">{item.symbol}</span>
-              <span className="text-xs text-muted-foreground truncate ml-2 max-w-[200px]">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-[var(--primary-container)] flex items-center justify-center text-[10px] font-bold text-[var(--primary)]">
+                  {item.symbol.slice(0, 2)}
+                </div>
+                <span className="font-bold text-[var(--primary)]">{item.symbol}</span>
+              </div>
+              <span className="text-xs text-[var(--on-surface-variant)] truncate ml-3 max-w-[180px]">
                 {item.description}
               </span>
             </button>

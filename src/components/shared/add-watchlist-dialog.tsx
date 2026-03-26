@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,12 +16,7 @@ export function AddWatchlistDialog() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-
-    const response = await fetch("/api/watchlist", {
-      method: "POST",
-      body: formData,
-    });
-
+    const response = await fetch("/api/watchlist", { method: "POST", body: formData });
     if (response.ok) {
       setOpen(false);
       setCurrentPrice(null);
@@ -31,51 +24,52 @@ export function AddWatchlistDialog() {
     }
   }
 
-  function handleSymbolSelect(symbol: string, price?: number) {
-    if (price) setCurrentPrice(price);
-  }
-
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setCurrentPrice(null); }}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button variant="outline" className="rounded-full border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary-container)] px-5">
           <Plus className="mr-2 h-4 w-4" /> Add to Watchlist
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[480px] rounded-2xl border-none bg-[var(--card)] shadow-[0_16px_64px_rgba(0,0,0,0.15)] p-0 overflow-visible">
         <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Add to Watchlist</DialogTitle>
-            <DialogDescription>
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle className="font-[var(--font-headline)] text-xl font-bold">
+              Add to Watchlist
+            </DialogTitle>
+            <DialogDescription className="text-[var(--on-surface-variant)] text-sm">
               Search for a stock to monitor its performance.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="symbol" className="text-right">Symbol</Label>
+
+          <div className="px-6 py-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[var(--on-surface-variant)] uppercase tracking-wider">
+                Symbol
+              </label>
               <StockSymbolInput
                 name="symbol"
                 placeholder="Search TSLA, AAPL..."
-                onSymbolSelect={handleSymbolSelect}
+                onSymbolSelect={(_, price) => { if (price) setCurrentPrice(price); }}
               />
             </div>
 
-            {/* Show current market price */}
             {currentPrice !== null && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <div className="text-right" />
-                <div className="col-span-3 rounded-md bg-accent/50 px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Current Price: </span>
-                  <span className="font-bold text-green-500">${currentPrice.toFixed(2)}</span>
-                </div>
+              <div className="rounded-xl bg-[var(--primary-container)] px-4 py-3 flex items-center justify-between">
+                <span className="text-xs font-medium text-[var(--primary)]">Current Price</span>
+                <span className="font-[var(--font-headline)] font-bold text-lg text-[var(--primary)]">
+                  ${currentPrice.toFixed(2)}
+                </span>
               </div>
             )}
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="convictionLevel" className="text-right">Conviction</Label>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[var(--on-surface-variant)] uppercase tracking-wider">
+                Conviction Level
+              </label>
               <Select name="convictionLevel" defaultValue="3">
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select level" />
+                <SelectTrigger className="rounded-xl bg-[var(--surface-container-high)] border-none h-10">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">1 - Low</SelectItem>
@@ -86,13 +80,26 @@ export function AddWatchlistDialog() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="notes" className="text-right">Notes</Label>
-              <Input id="notes" name="notes" placeholder="Growth potential..." className="col-span-3" />
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[var(--on-surface-variant)] uppercase tracking-wider">
+                Notes
+              </label>
+              <input
+                name="notes"
+                placeholder="Growth potential..."
+                className="w-full rounded-xl bg-[var(--surface-container-high)] px-4 py-2.5 text-sm font-medium placeholder:text-[var(--on-surface-variant)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:bg-[var(--card)] h-10"
+              />
             </div>
           </div>
-          <DialogFooter>
-            <Button type="submit">Add Item</Button>
+
+          <DialogFooter className="px-6 pb-6 pt-2">
+            <Button
+              type="submit"
+              className="w-full rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 h-11 font-bold"
+            >
+              Add to Watchlist
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

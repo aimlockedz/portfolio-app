@@ -4,28 +4,21 @@ import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
 import { PortfolioRepository } from "@/db/repositories/portfolio";
 import { WatchlistRepository } from "@/db/repositories/watchlist";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Briefcase, TrendingUp, History, LayoutDashboard } from "lucide-react";
-
+import { Briefcase, TrendingUp, History, Wallet } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const db = getDb();
   const lucia = initializeLucia(db);
-  
+
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(lucia.sessionCookieName)?.value ?? null;
-  if (!sessionId) {
-    return redirect("/login");
-  }
+  if (!sessionId) return redirect("/login");
 
   const sessionData = await lucia.validateSession(sessionId);
   const user = sessionData.user;
-  if (!user) {
-    return redirect("/login");
-  }
+  if (!user) return redirect("/login");
 
   const portfolioRepo = new PortfolioRepository(db);
   const watchlistRepo = new WatchlistRepository(db);
@@ -36,111 +29,161 @@ export default async function DashboardPage() {
     watchlistRepo.getItems(user.id),
   ]);
 
-  const totalValue = (holdings || []).reduce((sum, h) => sum + (h.totalQuantity * h.averageCost), 0);
+  const totalValue = (holdings || []).reduce(
+    (sum, h) => sum + h.totalQuantity * h.averageCost,
+    0
+  );
   const recentTransactions = (transactions || []).slice(-5).reverse();
   const topWatchlist = (watchlist || []).slice(0, 5);
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-      </div>
-      
-      {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Portfolio Value</CardTitle>
-            <Briefcase className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${(totalValue / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground">{holdings.length} symbols held</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Watchlist</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{watchlist.length}</div>
-            <p className="text-xs text-muted-foreground">Monitoring symbols</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Transactions</CardTitle>
-            <History className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{transactions.length}</div>
-            <p className="text-xs text-muted-foreground">Total trades made</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cash Position</CardTitle>
-            <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">$0.00</div>
-            <p className="text-xs text-muted-foreground">Available to invest</p>
-          </CardContent>
-        </Card>
+    <div className="p-6 lg:p-10 space-y-8 max-w-7xl">
+      {/* Header */}
+      <div>
+        <h1 className="font-[var(--font-headline)] text-3xl font-bold tracking-tight">
+          Dashboard
+        </h1>
+        <p className="text-sm text-[var(--on-surface-variant)] mt-1">
+          Welcome back! Here&apos;s your portfolio overview.
+        </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentTransactions.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>
-              ) : (
-                recentTransactions.map((tx: any) => (
-                  <div key={tx.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium leading-none">{tx.symbol}</p>
-                      <p className="text-xs text-muted-foreground">{tx.date.toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Badge variant={tx.type === "BUY" ? "default" : "secondary"}>{tx.type}</Badge>
-                      <div className="text-sm font-bold">${((tx.quantity * tx.price) / 100).toFixed(2)}</div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Stats Grid */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Portfolio Value - Primary */}
+        <div className="rounded-2xl bg-[var(--primary)] p-6 text-[var(--primary-foreground)]">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium opacity-80">Total Portfolio Value</span>
+            <Briefcase className="h-5 w-5 opacity-60" />
+          </div>
+          <p className="font-[var(--font-headline)] text-3xl font-extrabold">
+            ${(totalValue / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <p className="text-xs mt-2 opacity-70">{holdings.length} symbols held</p>
+        </div>
 
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Watchlist Priority</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {topWatchlist.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Watchlist is empty.</p>
-              ) : (
-                topWatchlist.map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
-                    <p className="text-sm font-medium leading-none">{item.symbol}</p>
-                    <Badge variant={item.convictionLevel >= 4 ? "default" : "outline"}>
-                      Level {item.convictionLevel}
-                    </Badge>
-                  </div>
-                ))
-              )}
+        {/* Watchlist */}
+        <div className="rounded-2xl bg-[var(--card)] p-6 shadow-[0_2px_32px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-[var(--on-surface-variant)]">Watchlist</span>
+            <div className="w-8 h-8 rounded-full bg-[var(--primary-container)] flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-[var(--primary)]" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <p className="font-[var(--font-headline)] text-3xl font-bold">{watchlist.length}</p>
+          <p className="text-xs mt-2 text-[var(--on-surface-variant)]">Monitoring symbols</p>
+        </div>
+
+        {/* Transactions */}
+        <div className="rounded-2xl bg-[var(--card)] p-6 shadow-[0_2px_32px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-[var(--on-surface-variant)]">Transactions</span>
+            <div className="w-8 h-8 rounded-full bg-[var(--surface-container-low)] flex items-center justify-center">
+              <History className="h-4 w-4 text-[var(--on-surface-variant)]" />
+            </div>
+          </div>
+          <p className="font-[var(--font-headline)] text-3xl font-bold">{transactions.length}</p>
+          <p className="text-xs mt-2 text-[var(--on-surface-variant)]">Total trades</p>
+        </div>
+
+        {/* Cash */}
+        <div className="rounded-2xl bg-[var(--card)] p-6 shadow-[0_2px_32px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-[var(--on-surface-variant)]">Cash Position</span>
+            <div className="w-8 h-8 rounded-full bg-[var(--surface-container-low)] flex items-center justify-center">
+              <Wallet className="h-4 w-4 text-[var(--on-surface-variant)]" />
+            </div>
+          </div>
+          <p className="font-[var(--font-headline)] text-3xl font-bold">$0.00</p>
+          <p className="text-xs mt-2 text-[var(--on-surface-variant)]">Available to invest</p>
+        </div>
+      </div>
+
+      {/* Bottom Section */}
+      <div className="grid gap-5 lg:grid-cols-5">
+        {/* Recent Transactions */}
+        <div className="lg:col-span-3 rounded-2xl bg-[var(--card)] p-6 shadow-[0_2px_32px_rgba(0,0,0,0.04)]">
+          <h2 className="font-[var(--font-headline)] font-bold text-lg mb-5">
+            Recent Transactions
+          </h2>
+          <div className="space-y-3">
+            {recentTransactions.length === 0 ? (
+              <p className="text-sm text-[var(--on-surface-variant)] text-center py-6">
+                No recent activity.
+              </p>
+            ) : (
+              recentTransactions.map((tx: any) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between rounded-xl bg-[var(--surface-container-low)] px-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                        tx.type === "BUY"
+                          ? "bg-[var(--primary-container)] text-[var(--primary)]"
+                          : "bg-[var(--error-container)]/20 text-[var(--on-error-container)]"
+                      }`}
+                    >
+                      {tx.type === "BUY" ? "B" : "S"}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">{tx.symbol}</p>
+                      <p className="text-xs text-[var(--on-surface-variant)]">
+                        {tx.date.toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-sm">
+                      ${((tx.quantity * tx.price) / 100).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-[var(--on-surface-variant)]">
+                      {tx.quantity} shares
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Watchlist Priority */}
+        <div className="lg:col-span-2 rounded-2xl bg-[var(--card)] p-6 shadow-[0_2px_32px_rgba(0,0,0,0.04)]">
+          <h2 className="font-[var(--font-headline)] font-bold text-lg mb-5">
+            Watchlist Priority
+          </h2>
+          <div className="space-y-3">
+            {topWatchlist.length === 0 ? (
+              <p className="text-sm text-[var(--on-surface-variant)] text-center py-6">
+                Watchlist is empty.
+              </p>
+            ) : (
+              topWatchlist.map((item: any) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between rounded-xl bg-[var(--surface-container-low)] px-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[var(--primary-container)] flex items-center justify-center text-xs font-bold text-[var(--primary)]">
+                      {item.symbol.slice(0, 2)}
+                    </div>
+                    <span className="font-semibold text-sm">{item.symbol}</span>
+                  </div>
+                  <span
+                    className={`text-xs font-bold px-3 py-1 rounded-full ${
+                      item.convictionLevel >= 4
+                        ? "bg-[var(--primary-container)] text-[var(--primary)]"
+                        : "bg-[var(--surface-container-high)] text-[var(--on-surface-variant)]"
+                    }`}
+                  >
+                    Level {item.convictionLevel}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

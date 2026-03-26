@@ -1,26 +1,134 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@300;400;500;600&display=swap');
 
+/* SoftWealth Design System */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fbf9f5;
+  --foreground: #31332f;
+  --card: #ffffff;
+  --card-foreground: #31332f;
+  --popover: #ffffff;
+  --popover-foreground: #31332f;
+  --primary: #1a6b50;
+  --primary-foreground: #e5fff0;
+  --secondary: #f5f4ef;
+  --secondary-foreground: #31332f;
+  --muted: #f5f4ef;
+  --muted-foreground: #5e605b;
+  --accent: #a5f2d0;
+  --accent-foreground: #005e44;
+  --destructive: #a83836;
+  --destructive-foreground: #fff7f6;
+  --border: rgba(178, 178, 173, 0.15);
+  --input: #e3e3dc;
+  --ring: #1a6b50;
+  --radius: 1rem;
+
+  /* Custom SoftWealth colors */
+  --surface: #fbf9f5;
+  --surface-container: #efeee9;
+  --surface-container-low: #f5f4ef;
+  --surface-container-lowest: #ffffff;
+  --surface-container-high: #e9e8e3;
+  --primary-container: #a5f2d0;
+  --primary-dim: #035f45;
+  --primary-fixed-dim: #97e4c2;
+  --error-container: #fa746f;
+  --on-error-container: #6e0a12;
+  --on-surface-variant: #5e605b;
+}
+
+.dark {
+  --background: #0e0e0d;
+  --foreground: #e3e3dc;
+  --card: #1c1c17;
+  --card-foreground: #e3e3dc;
+  --popover: #1c1c17;
+  --popover-foreground: #e3e3dc;
+  --primary: #97e4c2;
+  --primary-foreground: #004934;
+  --secondary: #2d2d26;
+  --secondary-foreground: #e3e3dc;
+  --muted: #2d2d26;
+  --muted-foreground: #9e9d99;
+  --accent: #005e44;
+  --accent-foreground: #a5f2d0;
+  --destructive: #fa746f;
+  --destructive-foreground: #6e0a12;
+  --border: rgba(178, 178, 173, 0.1);
+  --input: #2d2d26;
+  --ring: #97e4c2;
+
+  --surface: #0e0e0d;
+  --surface-container: #1c1c17;
+  --surface-container-low: #161612;
+  --surface-container-lowest: #0a0a09;
+  --surface-container-high: #2d2d26;
+  --primary-container: #005e44;
+  --primary-dim: #97e4c2;
+  --primary-fixed-dim: #1a6b50;
+  --error-container: #6e0a12;
+  --on-error-container: #fa746f;
+  --on-surface-variant: #9e9d99;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-surface: var(--surface);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-primary-container: var(--primary-container);
+  --color-primary-dim: var(--primary-dim);
+  --font-sans: 'Be Vietnam Pro', sans-serif;
+  --font-headline: 'Plus Jakarta Sans', sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Soft scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--on-surface-variant);
+  border-radius: 9999px;
+  opacity: 0.3;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: background-color, border-color, color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
 }
