@@ -51,7 +51,11 @@ export async function GET(request: NextRequest) {
     const result = json?.quoteSummary?.result?.[0];
 
     if (!result) {
-      return NextResponse.json({ error: "No financial data available", periods: [] });
+      return NextResponse.json({
+        error: "No financial data available",
+        debug: { status: res.status, keys: Object.keys(json || {}), raw: JSON.stringify(json).slice(0, 500) },
+        periods: [],
+      });
     }
 
     const incomeKey = isQuarterly ? "incomeStatementHistoryQuarterly" : "incomeStatementHistory";
