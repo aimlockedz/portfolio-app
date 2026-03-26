@@ -6,15 +6,13 @@ import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 export const dynamic = "force-dynamic";
 
-
-
 export async function POST(request: Request) {
   const formData = await request.formData();
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
   if (!email || !password) {
-    return new Response("Invalid input", { status: 400 });
+    return Response.json({ error: "Please enter email and password" }, { status: 400 });
   }
 
   const db = getDb();
@@ -22,12 +20,12 @@ export async function POST(request: Request) {
 
   const [existingUser] = await db.select().from(users).where(eq(users.email, email));
   if (!existingUser) {
-    return new Response("Incorrect email or password", { status: 400 });
+    return Response.json({ error: "Incorrect email or password" }, { status: 400 });
   }
 
   const validPassword = await bcrypt.compare(password, existingUser.hashedPassword);
   if (!validPassword) {
-    return new Response("Incorrect email or password", { status: 400 });
+    return Response.json({ error: "Incorrect email or password" }, { status: 400 });
   }
 
   const session = await lucia.createSession(existingUser.id, {});
@@ -35,8 +33,5 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
 
-  return new Response(JSON.stringify({ success: true }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  return Response.json({ success: true });
 }

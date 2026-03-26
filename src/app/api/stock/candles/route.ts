@@ -4,19 +4,18 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get("symbol");
-  const resolution = request.nextUrl.searchParams.get("resolution") || "D"; // D=daily, W=weekly
-  const range = request.nextUrl.searchParams.get("range") || "1Y"; // 1M, 3M, 6M, 1Y, 5Y
+  const resolution = request.nextUrl.searchParams.get("resolution") || "D";
+  const range = request.nextUrl.searchParams.get("range") || "1Y";
 
   if (!symbol) {
-    return NextResponse.json({ error: "Symbol required" }, { status: 400 });
+    return NextResponse.json({ error: "Symbol required", candles: [] }, { status: 400 });
   }
 
   const apiKey = process.env.FINNHUB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "API key not configured" }, { status: 500 });
+    return NextResponse.json({ error: "FINNHUB_API_KEY not configured", candles: [] }, { status: 500 });
   }
 
-  // Calculate from/to timestamps
   const now = Math.floor(Date.now() / 1000);
   const ranges: Record<string, number> = {
     "1M": 30 * 86400,
@@ -28,17 +27,18 @@ export async function GET(request: NextRequest) {
   const from = now - (ranges[range] || ranges["1Y"]);
 
   try {
-    const res = await fetch(
-      `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&from=${from}&to=${now}&token=${apiKey}`,
-      { next: { revalidate: 300 } } // cache 5 min
-    );
+    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&from=${from}&to=${now}&token=${apiKey}`;
+    const res = await fetch(url, { next: { revalidate: 300 } });
     const data = await res.json();
 
-    if (data.s === "no_data" || !data.c) {
-      return NextResponse.json({ candles: [] });
+    if (data.error) {
+      return NextResponse.json({ error: data.error, candles: [] });
     }
 
-    // Format: array of { time, open, high, low, close, volume }
+    if (data.s === "no_data" || !data.c || !Array.isArray(data.c)) {
+      return NextResponse.json({ error: "No data available for this symbol", candles: [] });
+    }
+
     const candles = data.t.map((timestamp: number, i: number) => ({
       time: timestamp,
       open: data.o[i],
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ candles });
-  } catch {
-    return NextResponse.json({ error: "Failed to fetch candles" }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: `Failed to fetch: ${err}`, candles: [] }, { status: 500 });
   }
 }

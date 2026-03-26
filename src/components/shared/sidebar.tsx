@@ -14,6 +14,7 @@ import {
   LogOut,
   ArrowRightLeft,
 } from "lucide-react";
+import { StockSearch } from "./stock-search";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -47,6 +48,9 @@ export function Sidebar() {
           Your portfolio is growing
         </p>
       </div>
+
+      {/* Stock Search */}
+      <StockSearch />
 
       {/* Main Nav */}
       <nav className="flex-1 flex flex-col gap-1.5">

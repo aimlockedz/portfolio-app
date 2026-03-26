@@ -46,7 +46,6 @@ function calculateTA(candles: Candle[]): TAData {
   const highs = candles.map((c) => c.high);
   const lows = candles.map((c) => c.low);
 
-  // EMAs
   function calcEMA(prices: number[], period: number): number[] {
     const k = 2 / (period + 1);
     const ema: number[] = [prices[0]];
@@ -61,7 +60,6 @@ function calculateTA(candles: Candle[]): TAData {
   const ema50 = calcEMA(closes, 50);
   const ema200 = calcEMA(closes, 200);
 
-  // RSI
   function calcRSI(prices: number[], period: number = 14): number {
     if (prices.length <= period) return 50;
     let gains = 0, losses = 0;
@@ -79,23 +77,17 @@ function calculateTA(candles: Candle[]): TAData {
     return 100 - 100 / (1 + avgGain / avgLoss);
   }
 
-  // MACD
   const ema12 = calcEMA(closes, 12);
   const ema26 = calcEMA(closes, 26);
   const macdLine = ema12.map((v, i) => v - ema26[i]);
   const signalLine = calcEMA(macdLine, 9);
 
-  // 52-week high/low
-  const last252 = closes.slice(-252);
   const last252H = highs.slice(-252);
   const last252L = lows.slice(-252);
-
-  // Fibonacci from 52-week range
   const week52High = Math.max(...last252H);
   const week52Low = Math.min(...last252L);
   const fibDiff = week52High - week52Low;
 
-  // Support/Resistance
   function detectSR(prices: number[], window: number = 5) {
     const res: number[] = [], sup: number[] = [];
     for (let i = window; i < prices.length - window; i++) {
@@ -146,30 +138,50 @@ function calculateTA(candles: Candle[]): TAData {
   };
 }
 
+const EMA_CONFIG = [
+  { key: "ema9", label: "EMA 9", color: "#f59e0b" },
+  { key: "ema21", label: "EMA 21", color: "#3b82f6" },
+  { key: "ema50", label: "EMA 50", color: "#8b5cf6" },
+  { key: "ema200", label: "EMA 200", color: "#ef4444" },
+] as const;
+
 export function StockDetailClient({ symbol }: { symbol: string }) {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [ta, setTA] = useState<TAData | null>(null);
   const [range, setRange] = useState<(typeof RANGES)[number]>("1Y");
   const [loading, setLoading] = useState(true);
-  const [showFib, setShowFib] = useState(true);
-  const [showSR, setShowSR] = useState(true);
+  const [error, setError] = useState("");
+  const [showFib, setShowFib] = useState(false);
+  const [showSR, setShowSR] = useState(false);
+  const [showEMA, setShowEMA] = useState<Record<string, boolean>>({
+    ema9: true, ema21: true, ema50: false, ema200: false,
+  });
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [candleRes, quoteRes] = await Promise.all([
-        fetch(`/api/stock/candles?symbol=${symbol}&range=${range}`),
-        fetch(`/api/stock/quote?symbol=${symbol}`),
-      ]);
-      const candleData = await candleRes.json();
-      const quoteData = await quoteRes.json();
+      setError("");
+      try {
+        const [candleRes, quoteRes] = await Promise.all([
+          fetch(`/api/stock/candles?symbol=${symbol}&range=${range}`),
+          fetch(`/api/stock/quote?symbol=${symbol}`),
+        ]);
+        const candleData = await candleRes.json();
+        const quoteData = await quoteRes.json();
 
-      setCandles(candleData.candles || []);
-      setQuote(quoteData);
+        if (candleData.error && candleData.candles?.length === 0) {
+          setError(candleData.error);
+        }
 
-      if (candleData.candles?.length > 0) {
-        setTA(calculateTA(candleData.candles));
+        setCandles(candleData.candles || []);
+        setQuote(quoteData);
+
+        if (candleData.candles?.length > 0) {
+          setTA(calculateTA(candleData.candles));
+        }
+      } catch {
+        setError("Failed to load data");
       }
       setLoading(false);
     }
@@ -177,12 +189,11 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
   }, [symbol, range]);
 
   const emaLines = ta
-    ? [
-        { period: 9, color: "#f59e0b", data: ta.ema9 },
-        { period: 21, color: "#3b82f6", data: ta.ema21 },
-        { period: 50, color: "#8b5cf6", data: ta.ema50 },
-        { period: 200, color: "#ef4444", data: ta.ema200 },
-      ]
+    ? EMA_CONFIG.filter((e) => showEMA[e.key]).map((e) => ({
+        period: parseInt(e.label.split(" ")[1]),
+        color: e.color,
+        data: ta[e.key as keyof TAData] as { time: number; value: number }[],
+      }))
     : [];
 
   const srLevels = ta && showSR
@@ -228,8 +239,9 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
 
       {/* Chart Card */}
       <div className="rounded-2xl bg-[var(--card)] shadow-[0_2px_32px_rgba(0,0,0,0.04)] p-6">
-        {/* Range + Toggle buttons */}
+        {/* Controls Row */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          {/* Range buttons */}
           <div className="flex gap-1.5">
             {RANGES.map((r) => (
               <button
@@ -245,7 +257,8 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
               </button>
             ))}
           </div>
-          <div className="flex gap-1.5">
+          {/* Overlay toggles */}
+          <div className="flex gap-1.5 flex-wrap">
             <button
               onClick={() => setShowFib(!showFib)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
@@ -277,17 +290,30 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
             fibLevels={fibLevels}
           />
         ) : (
-          <div className="h-[420px] flex items-center justify-center text-[var(--on-surface-variant)]">
-            No chart data available
+          <div className="h-[420px] flex flex-col items-center justify-center gap-2">
+            <span className="text-[var(--on-surface-variant)]">No chart data available</span>
+            {error && (
+              <span className="text-xs text-[#a83836] bg-[#fa746f]/10 px-3 py-1 rounded-full">{error}</span>
+            )}
           </div>
         )}
 
-        {/* EMA Legend */}
-        <div className="flex gap-4 mt-3 flex-wrap">
-          <span className="text-xs flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#f59e0b] inline-block rounded" /> EMA 9</span>
-          <span className="text-xs flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#3b82f6] inline-block rounded" /> EMA 21</span>
-          <span className="text-xs flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#8b5cf6] inline-block rounded" /> EMA 50</span>
-          <span className="text-xs flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#ef4444] inline-block rounded" /> EMA 200</span>
+        {/* EMA Legend - toggleable */}
+        <div className="flex gap-2 mt-3 flex-wrap">
+          {EMA_CONFIG.map((ema) => (
+            <button
+              key={ema.key}
+              onClick={() => setShowEMA((prev) => ({ ...prev, [ema.key]: !prev[ema.key] }))}
+              className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all ${
+                showEMA[ema.key]
+                  ? "bg-[var(--surface-container-high)] font-bold"
+                  : "opacity-40 hover:opacity-70"
+              }`}
+            >
+              <span className="w-3 h-0.5 inline-block rounded" style={{ backgroundColor: ema.color }} />
+              {ema.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -304,7 +330,6 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
                 <span className="text-[var(--on-surface-variant)]">52W Low</span>
                 <span className="font-bold">${ta.week52Low.toFixed(2)}</span>
               </div>
-              {/* Range bar */}
               <div className="relative h-2 rounded-full bg-[var(--surface-container-high)]">
                 <div
                   className="absolute h-full rounded-full bg-gradient-to-r from-[#a83836] via-[#f59e0b] to-[#1a6b50]"
@@ -312,11 +337,25 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
                     width: `${Math.min(100, Math.max(0, ((quote?.currentPrice ?? ta.week52Low) - ta.week52Low) / (ta.week52High - ta.week52Low) * 100))}%`
                   }}
                 />
+                {/* Current price marker */}
+                <div
+                  className="absolute top-[-3px] w-2 h-[14px] rounded-sm bg-white border border-[var(--on-surface-variant)]"
+                  style={{
+                    left: `${Math.min(100, Math.max(0, ((quote?.currentPrice ?? ta.week52Low) - ta.week52Low) / (ta.week52High - ta.week52Low) * 100))}%`,
+                    transform: "translateX(-50%)",
+                  }}
+                />
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[var(--on-surface-variant)]">52W High</span>
                 <span className="font-bold">${ta.week52High.toFixed(2)}</span>
               </div>
+              {quote && (
+                <div className="flex justify-between text-sm pt-1 border-t border-[var(--border)]">
+                  <span className="text-[var(--on-surface-variant)]">Current</span>
+                  <span className="font-bold text-[var(--primary)]">${quote.currentPrice.toFixed(2)}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -326,20 +365,24 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
               EMA Values
             </h3>
             <div className="space-y-2.5">
-              {[
-                { label: "EMA 9", value: ta.currentEMA.ema9, color: "#f59e0b" },
-                { label: "EMA 21", value: ta.currentEMA.ema21, color: "#3b82f6" },
-                { label: "EMA 50", value: ta.currentEMA.ema50, color: "#8b5cf6" },
-                { label: "EMA 200", value: ta.currentEMA.ema200, color: "#ef4444" },
-              ].map((ema) => (
-                <div key={ema.label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ema.color }} />
-                    <span className="text-sm text-[var(--on-surface-variant)]">{ema.label}</span>
+              {EMA_CONFIG.map((ema) => {
+                const val = ta.currentEMA[ema.key as keyof typeof ta.currentEMA];
+                const abovePrice = quote ? val > quote.currentPrice : false;
+                return (
+                  <div key={ema.key} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ema.color }} />
+                      <span className="text-sm text-[var(--on-surface-variant)]">{ema.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold">${val.toFixed(2)}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${abovePrice ? "bg-[#fa746f]/15 text-[#a83836]" : "bg-[var(--primary-container)] text-[var(--primary)]"}`}>
+                        {abovePrice ? "Above" : "Below"}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-sm font-bold">${ema.value.toFixed(2)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -349,21 +392,16 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
               Momentum
             </h3>
             <div className="space-y-4">
-              {/* RSI */}
               <div>
                 <div className="flex justify-between text-sm mb-1.5">
                   <span className="text-[var(--on-surface-variant)]">RSI (14)</span>
-                  <span className={`font-bold ${
-                    ta.rsi > 70 ? "text-[#a83836]" : ta.rsi < 30 ? "text-[var(--primary)]" : ""
-                  }`}>
+                  <span className={`font-bold ${ta.rsi > 70 ? "text-[#a83836]" : ta.rsi < 30 ? "text-[var(--primary)]" : ""}`}>
                     {ta.rsi.toFixed(1)}
                   </span>
                 </div>
                 <div className="relative h-2 rounded-full bg-[var(--surface-container-high)]">
                   <div
-                    className={`absolute h-full rounded-full ${
-                      ta.rsi > 70 ? "bg-[#a83836]" : ta.rsi < 30 ? "bg-[var(--primary)]" : "bg-[#f59e0b]"
-                    }`}
+                    className={`absolute h-full rounded-full ${ta.rsi > 70 ? "bg-[#a83836]" : ta.rsi < 30 ? "bg-[var(--primary)]" : "bg-[#f59e0b]"}`}
                     style={{ width: `${ta.rsi}%` }}
                   />
                 </div>
@@ -371,8 +409,6 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
                   <span>Oversold</span><span>Neutral</span><span>Overbought</span>
                 </div>
               </div>
-
-              {/* MACD */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-[var(--on-surface-variant)]">MACD</span>
@@ -398,12 +434,15 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
               Fibonacci Retracement
             </h3>
             <div className="space-y-2">
-              {ta.fibonacci.map((fib) => (
-                <div key={fib.label} className="flex justify-between text-sm">
-                  <span className="text-[var(--on-surface-variant)]">{fib.label}</span>
-                  <span className="font-bold font-mono">${fib.value.toFixed(2)}</span>
-                </div>
-              ))}
+              {ta.fibonacci.map((fib) => {
+                const isNear = quote && Math.abs(fib.value - quote.currentPrice) / quote.currentPrice < 0.02;
+                return (
+                  <div key={fib.label} className={`flex justify-between text-sm ${isNear ? "bg-[#6e5d35]/15 -mx-2 px-2 py-0.5 rounded" : ""}`}>
+                    <span className="text-[var(--on-surface-variant)]">{fib.label}</span>
+                    <span className={`font-bold font-mono ${isNear ? "text-[#6e5d35]" : ""}`}>${fib.value.toFixed(2)}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

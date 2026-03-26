@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const displayName = formData.get("displayName") as string;
 
   if (!email || !password || !displayName) {
-    return new Response("Invalid input", { status: 400 });
+    return Response.json({ error: "Please fill in all fields" }, { status: 400 });
   }
 
   const db = getDb();
@@ -45,11 +45,8 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    return new Response("User already exists", { status: 400 });
+    return Response.json({ success: true });
+  } catch {
+    return Response.json({ error: "Email already registered" }, { status: 400 });
   }
 }

@@ -27,8 +27,8 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        setError(text || "Login failed");
+        const data = await res.json().catch(() => null);
+        setError(data?.error || "Login failed");
         setLoading(false);
         return;
       }
