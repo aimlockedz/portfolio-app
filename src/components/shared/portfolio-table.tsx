@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface Holding {
@@ -17,6 +18,7 @@ interface QuoteData {
 }
 
 export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
+  const router = useRouter();
   const [quotes, setQuotes] = useState<Record<string, QuoteData>>({});
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +83,8 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
             return (
               <tr
                 key={holding.id}
-                className="border-t border-[var(--border)] hover:bg-[var(--surface-container-low)] transition-colors"
+                onClick={() => router.push(`/stock/${holding.symbol}`)}
+                className="border-t border-[var(--border)] hover:bg-[var(--surface-container-low)] transition-colors cursor-pointer"
               >
                 {/* Symbol */}
                 <td className="px-6 py-4">
