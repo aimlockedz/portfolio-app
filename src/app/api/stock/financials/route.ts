@@ -50,7 +50,17 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (!Array.isArray(income) || income.length === 0) {
-      return NextResponse.json({ error: "No financial data available", periods: [] });
+      // Return debug info so we can see what FMP actually sent
+      return NextResponse.json({
+        error: "No financial data available",
+        debug: {
+          incomeType: typeof income,
+          incomeIsArray: Array.isArray(income),
+          incomeLength: Array.isArray(income) ? income.length : null,
+          incomeRaw: income,
+        },
+        periods: [],
+      });
     }
 
     const periods = income.map((inc: Record<string, unknown>, i: number) => {
