@@ -5,32 +5,28 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q");
   if (!query || query.length < 1) {
-    return NextResponse.json([]);
-  }
-
-  const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "API key not configured" }, { status: 500 });
+    return NextResponse.json({ results: [] });
   }
 
   try {
-    const res = await fetch(
-      `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&token=${apiKey}`,
-      { next: { revalidate: 3600 } }
-    );
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0&listsCount=0`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      next: { revalidate: 3600 },
+    });
     const data = await res.json();
 
-    // Filter to only common stocks (not crypto, forex, etc.)
-    const results = (data.result || [])
-      .filter((item: any) => item.type === "Common Stock")
+    const results = (data.quotes || [])
+      .filter((item: any) => item.quoteType === "EQUITY" || item.quoteType === "ETF")
       .slice(0, 8)
       .map((item: any) => ({
         symbol: item.symbol,
-        description: item.description,
+        description: item.shortname || item.longname || item.symbol,
+        type: item.quoteType,
       }));
 
-    return NextResponse.json(results);
+    return NextResponse.json({ results });
   } catch {
-    return NextResponse.json({ error: "Search failed" }, { status: 500 });
+    return NextResponse.json({ results: [], error: "Search failed" }, { status: 500 });
   }
 }

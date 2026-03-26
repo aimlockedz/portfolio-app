@@ -4,49 +4,52 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get("symbol");
-  const resolution = request.nextUrl.searchParams.get("resolution") || "D";
   const range = request.nextUrl.searchParams.get("range") || "1Y";
 
   if (!symbol) {
     return NextResponse.json({ error: "Symbol required", candles: [] }, { status: 400 });
   }
 
-  const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "FINNHUB_API_KEY not configured", candles: [] }, { status: 500 });
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  const ranges: Record<string, number> = {
-    "1M": 30 * 86400,
-    "3M": 90 * 86400,
-    "6M": 180 * 86400,
-    "1Y": 365 * 86400,
-    "5Y": 5 * 365 * 86400,
+  // Map range to Yahoo Finance params
+  const rangeMap: Record<string, { range: string; interval: string }> = {
+    "1M": { range: "1mo", interval: "1d" },
+    "3M": { range: "3mo", interval: "1d" },
+    "6M": { range: "6mo", interval: "1d" },
+    "1Y": { range: "1y", interval: "1d" },
+    "5Y": { range: "5y", interval: "1wk" },
   };
-  const from = now - (ranges[range] || ranges["1Y"]);
+
+  const params = rangeMap[range] || rangeMap["1Y"];
 
   try {
-    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&from=${from}&to=${now}&token=${apiKey}`;
-    const res = await fetch(url, { next: { revalidate: 300 } });
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${params.range}&interval=${params.interval}`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      next: { revalidate: 300 },
+    });
     const data = await res.json();
 
-    if (data.error) {
-      return NextResponse.json({ error: data.error, candles: [] });
+    const result = data?.chart?.result?.[0];
+    if (!result) {
+      return NextResponse.json({ error: "No data for this symbol", candles: [] });
     }
 
-    if (data.s === "no_data" || !data.c || !Array.isArray(data.c)) {
-      return NextResponse.json({ error: "No data available for this symbol", candles: [] });
+    const timestamps = result.timestamp;
+    const quote = result.indicators?.quote?.[0];
+    if (!timestamps || !quote) {
+      return NextResponse.json({ error: "Invalid data format", candles: [] });
     }
 
-    const candles = data.t.map((timestamp: number, i: number) => ({
-      time: timestamp,
-      open: data.o[i],
-      high: data.h[i],
-      low: data.l[i],
-      close: data.c[i],
-      volume: data.v[i],
-    }));
+    const candles = timestamps
+      .map((t: number, i: number) => ({
+        time: t,
+        open: quote.open?.[i],
+        high: quote.high?.[i],
+        low: quote.low?.[i],
+        close: quote.close?.[i],
+        volume: quote.volume?.[i],
+      }))
+      .filter((c: { close: number | null }) => c.close !== null && c.close !== undefined);
 
     return NextResponse.json({ candles });
   } catch (err) {
