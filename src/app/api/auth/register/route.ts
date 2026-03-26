@@ -45,11 +45,9 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
 
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: "/dashboard",
-      },
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
     return new Response("User already exists", { status: 400 });
