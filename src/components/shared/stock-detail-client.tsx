@@ -40,6 +40,20 @@ interface TAData {
 }
 
 const RANGES = ["1M", "3M", "6M", "1Y"] as const;
+const INTERVALS = [
+  { key: "D", label: "Day" },
+  { key: "W", label: "Week" },
+  { key: "M", label: "Month" },
+] as const;
+
+interface Recommendation {
+  buy: number;
+  hold: number;
+  sell: number;
+  strongBuy: number;
+  strongSell: number;
+  period: string;
+}
 
 function calculateTA(candles: Candle[]): TAData {
   const closes = candles.map((c) => c.close);
@@ -154,6 +168,8 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
   const [error, setError] = useState("");
   const [showFib, setShowFib] = useState(false);
   const [showSR, setShowSR] = useState(false);
+  const [interval, setInterval] = useState<string>("D");
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [showEMA, setShowEMA] = useState<Record<string, boolean>>({
     ema9: true, ema21: true, ema50: false, ema200: false,
   });
@@ -163,9 +179,10 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
       setLoading(true);
       setError("");
       try {
-        const [candleRes, quoteRes] = await Promise.all([
-          fetch(`/api/stock/candles?symbol=${symbol}&range=${range}`),
+        const [candleRes, quoteRes, recRes] = await Promise.all([
+          fetch(`/api/stock/candles?symbol=${symbol}&range=${range}&interval=${interval}`),
           fetch(`/api/stock/quote?symbol=${symbol}`),
+          fetch(`/api/stock/recommendation?symbol=${symbol}`),
         ]);
         const candleData = await candleRes.json();
         const quoteData = await quoteRes.json();
@@ -180,13 +197,18 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
         if (candleData.candles?.length > 0) {
           setTA(calculateTA(candleData.candles));
         }
+
+        const recData = await recRes.json().catch(() => null);
+        if (recData?.recommendation) {
+          setRecommendation(recData.recommendation);
+        }
       } catch {
         setError("Failed to load data");
       }
       setLoading(false);
     }
     load();
-  }, [symbol, range]);
+  }, [symbol, range, interval]);
 
   const emaLines = ta
     ? EMA_CONFIG.filter((e) => showEMA[e.key]).map((e) => ({
@@ -254,6 +276,22 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
                 }`}
               >
                 {r}
+              </button>
+            ))}
+          </div>
+          {/* Interval buttons */}
+          <div className="flex gap-1.5">
+            {INTERVALS.map((iv) => (
+              <button
+                key={iv.key}
+                onClick={() => setInterval(iv.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  interval === iv.key
+                    ? "bg-[var(--on-surface)] text-[var(--surface)]"
+                    : "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]"
+                }`}
+              >
+                {iv.label}
               </button>
             ))}
           </div>
@@ -485,6 +523,100 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Volume Stats */}
+      {candles.length > 0 && (
+        <div className="rounded-2xl bg-[var(--card)] shadow-[0_2px_32px_rgba(0,0,0,0.04)] p-6">
+          <h3 className="font-[var(--font-headline)] font-bold text-sm mb-4 text-[var(--on-surface-variant)] uppercase tracking-wider">
+            Volume
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {(() => {
+              const last = candles[candles.length - 1];
+              const vols = candles.map((c) => c.volume).filter(Boolean);
+              const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length;
+              const maxVol = Math.max(...vols);
+              const ratio = last?.volume ? last.volume / avgVol : 0;
+              return (
+                <>
+                  <div>
+                    <p className="text-xs text-[var(--on-surface-variant)] mb-1">Latest Volume</p>
+                    <p className="font-bold text-lg">{last?.volume ? (last.volume / 1e6).toFixed(2) + "M" : "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--on-surface-variant)] mb-1">Avg Volume</p>
+                    <p className="font-bold text-lg">{(avgVol / 1e6).toFixed(2)}M</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--on-surface-variant)] mb-1">Max Volume</p>
+                    <p className="font-bold text-lg">{(maxVol / 1e6).toFixed(2)}M</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--on-surface-variant)] mb-1">Vol vs Avg</p>
+                    <p className={`font-bold text-lg ${ratio > 1.5 ? "text-[var(--primary)]" : ratio < 0.5 ? "text-[#a83836]" : ""}`}>
+                      {ratio.toFixed(2)}x
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Analyst Recommendations */}
+      {recommendation && (
+        <div className="rounded-2xl bg-[var(--card)] shadow-[0_2px_32px_rgba(0,0,0,0.04)] p-6">
+          <h3 className="font-[var(--font-headline)] font-bold text-sm mb-4 text-[var(--on-surface-variant)] uppercase tracking-wider">
+            Analyst Recommendations
+          </h3>
+          {(() => {
+            const total = recommendation.strongBuy + recommendation.buy + recommendation.hold + recommendation.sell + recommendation.strongSell;
+            if (total === 0) return <p className="text-sm text-[var(--on-surface-variant)]">No data available</p>;
+            const items = [
+              { label: "Strong Buy", count: recommendation.strongBuy, color: "#0d9488", bg: "rgba(13,148,136,0.15)" },
+              { label: "Buy", count: recommendation.buy, color: "#1a6b50", bg: "rgba(26,107,80,0.15)" },
+              { label: "Hold", count: recommendation.hold, color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
+              { label: "Sell", count: recommendation.sell, color: "#dc2626", bg: "rgba(220,38,38,0.15)" },
+              { label: "Strong Sell", count: recommendation.strongSell, color: "#991b1b", bg: "rgba(153,27,27,0.15)" },
+            ];
+            return (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-[var(--on-surface-variant)]">From <span className="font-bold text-[var(--foreground)]">{total}</span> analysts</span>
+                  <span className="text-xs text-[var(--on-surface-variant)]">{recommendation.period}</span>
+                </div>
+                {/* Bar chart */}
+                <div className="flex h-8 rounded-full overflow-hidden">
+                  {items.filter((i) => i.count > 0).map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-center justify-center text-[10px] font-bold text-white transition-all"
+                      style={{ width: `${(item.count / total) * 100}%`, backgroundColor: item.color, minWidth: item.count > 0 ? "24px" : "0" }}
+                    >
+                      {item.count}
+                    </div>
+                  ))}
+                </div>
+                {/* Legend */}
+                <div className="grid grid-cols-5 gap-2">
+                  {items.map((item) => (
+                    <div key={item.label} className="text-center">
+                      <div
+                        className="text-xl font-bold mb-0.5"
+                        style={{ color: item.color }}
+                      >
+                        {item.count}
+                      </div>
+                      <div className="text-[10px] text-[var(--on-surface-variant)] leading-tight">{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

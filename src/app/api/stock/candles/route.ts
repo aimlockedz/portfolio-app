@@ -5,24 +5,28 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get("symbol");
   const range = request.nextUrl.searchParams.get("range") || "1Y";
+  const tf = request.nextUrl.searchParams.get("interval") || "D";
 
   if (!symbol) {
     return NextResponse.json({ error: "Symbol required", candles: [] }, { status: 400 });
   }
 
-  // Map range to Yahoo Finance params
-  const rangeMap: Record<string, { range: string; interval: string }> = {
-    "1M": { range: "1mo", interval: "1d" },
-    "3M": { range: "3mo", interval: "1d" },
-    "6M": { range: "6mo", interval: "1d" },
-    "1Y": { range: "1y", interval: "1d" },
-    "5Y": { range: "5y", interval: "1wk" },
-  };
+  // Map timeframe: D=daily, W=weekly, M=monthly
+  const intervalMap: Record<string, string> = { D: "1d", W: "1wk", M: "1mo" };
+  const yahooInterval = intervalMap[tf] || "1d";
 
-  const params = rangeMap[range] || rangeMap["1Y"];
+  // Map range to Yahoo Finance params
+  const rangeMap: Record<string, string> = {
+    "1M": "1mo",
+    "3M": "3mo",
+    "6M": "6mo",
+    "1Y": "1y",
+    "5Y": "5y",
+  };
+  const yahooRange = rangeMap[range] || "1y";
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${params.range}&interval=${params.interval}`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${yahooRange}&interval=${yahooInterval}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
       next: { revalidate: 300 },
