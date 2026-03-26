@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 
 export const dynamic = "force-dynamic";
+
+const yahooFinance = new YahooFinance();
 
 function raw(v: unknown): number {
   if (v && typeof v === "object" && "raw" in v) return (v as { raw: number }).raw || 0;
