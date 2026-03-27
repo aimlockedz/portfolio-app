@@ -23,22 +23,20 @@ export default async function PortfolioPage() {
   const holdings = await portfolioRepo.getHoldings(user.id);
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl space-y-8">
+    <div className="p-6 lg:p-10 max-w-7xl space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="font-[var(--font-headline)] text-3xl font-bold tracking-tight">
+          <h1 className="font-[var(--font-headline)] text-2xl font-bold tracking-tight">
             My Portfolio
           </h1>
-          <p className="text-sm text-[var(--on-surface-variant)] mt-1">
-            Track your holdings and market performance.
+          <p className="text-sm text-[var(--on-surface-variant)] mt-0.5">
+            {holdings.length} holdings
           </p>
         </div>
         <AddTransactionDialog />
       </div>
 
-      <div className="rounded-2xl bg-[var(--card)] shadow-[0_2px_32px_rgba(0,0,0,0.04)] overflow-hidden">
-        <PortfolioTable holdings={holdings} />
-      </div>
+      <PortfolioTable holdings={holdings} />
     </div>
   );
 }
