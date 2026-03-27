@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { StockChart } from "./stock-chart";
 import { FundamentalsClient } from "./fundamentals-client";
-import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Bell, Plus, X, Search } from "lucide-react";
 import Link from "next/link";
 
 interface Candle {
@@ -54,6 +54,13 @@ interface Recommendation {
   strongBuy: number;
   strongSell: number;
   period: string;
+}
+
+interface PriceAlert {
+  id: string;
+  symbol: string;
+  targetPrice: number; // cents
+  direction: string;
 }
 
 function calculateTA(candles: Candle[]): TAData {
@@ -160,6 +167,10 @@ const EMA_CONFIG = [
   { key: "ema200", label: "EMA 200", color: "#ef4444" },
 ] as const;
 
+// Common pill button style
+const pillActive = "bg-[var(--primary)] text-[var(--primary-foreground)]";
+const pillInactive = "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]";
+
 export function StockDetailClient({ symbol }: { symbol: string }) {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -175,6 +186,13 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
     ema9: true, ema21: true, ema50: false, ema200: false,
   });
   const [activeTab, setActiveTab] = useState<"chart" | "fundamentals">("chart");
+
+  // Price alerts
+  const [alerts, setAlerts] = useState<PriceAlert[]>([]);
+  const [showAlertForm, setShowAlertForm] = useState(false);
+  const [alertPrice, setAlertPrice] = useState("");
+  const [alertDirection, setAlertDirection] = useState<"above" | "below">("above");
+  const [creatingAlert, setCreatingAlert] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -212,6 +230,49 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
     load();
   }, [symbol, range, interval]);
 
+  // Fetch alerts for this symbol
+  useEffect(() => {
+    fetch("/api/portfolio/alerts")
+      .then((r) => r.json())
+      .then((data) => {
+        const all: PriceAlert[] = data.alerts || [];
+        setAlerts(all.filter((a) => a.symbol === symbol.toUpperCase()));
+      })
+      .catch(() => {});
+  }, [symbol]);
+
+  async function createAlert() {
+    if (!alertPrice) return;
+    setCreatingAlert(true);
+    try {
+      await fetch("/api/portfolio/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: symbol.toUpperCase(),
+          targetPrice: parseFloat(alertPrice),
+          direction: alertDirection,
+        }),
+      });
+      setAlertPrice("");
+      setShowAlertForm(false);
+      // Reload alerts
+      const res = await fetch("/api/portfolio/alerts");
+      const data = await res.json();
+      setAlerts((data.alerts || []).filter((a: PriceAlert) => a.symbol === symbol.toUpperCase()));
+    } catch { /* skip */ }
+    setCreatingAlert(false);
+  }
+
+  async function deleteAlert(id: string) {
+    await fetch("/api/portfolio/alerts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  }
+
   const emaLines = ta
     ? EMA_CONFIG.filter((e) => showEMA[e.key]).map((e) => ({
         period: parseInt(e.label.split(" ")[1]),
@@ -228,6 +289,12 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
     : [];
 
   const fibLevels = ta && showFib ? ta.fibonacci : [];
+
+  // Alert levels for chart
+  const alertLevels = alerts.map((a) => ({
+    value: a.targetPrice / 100,
+    direction: a.direction as "above" | "below",
+  }));
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl space-y-6">
@@ -259,7 +326,88 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
             </div>
           )}
         </div>
+        {/* Quick Alert Button */}
+        <button
+          onClick={() => setShowAlertForm(!showAlertForm)}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+            showAlertForm
+              ? "bg-red-500/10 text-red-400"
+              : "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]"
+          }`}
+        >
+          {showAlertForm ? <X className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          {showAlertForm ? "Cancel" : "Set Alert"}
+        </button>
       </div>
+
+      {/* Quick Alert Form */}
+      {showAlertForm && (
+        <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-bold text-[var(--primary)]">{symbol}</span>
+            <input
+              type="number"
+              step="0.01"
+              value={alertPrice}
+              onChange={(e) => setAlertPrice(e.target.value)}
+              placeholder={quote ? `e.g. ${(quote.currentPrice * 1.05).toFixed(2)}` : "Price"}
+              className="w-32 px-3 py-2 rounded-lg bg-[var(--surface-container)] border border-[var(--border)] text-sm font-semibold outline-none focus:border-[var(--primary)]"
+            />
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setAlertDirection("above")}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                  alertDirection === "above"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-[var(--surface-container)] text-[var(--on-surface-variant)] border border-[var(--border)]"
+                }`}
+              >
+                ↑ Above
+              </button>
+              <button
+                onClick={() => setAlertDirection("below")}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                  alertDirection === "below"
+                    ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                    : "bg-[var(--surface-container)] text-[var(--on-surface-variant)] border border-[var(--border)]"
+                }`}
+              >
+                ↓ Below
+              </button>
+            </div>
+            <button
+              onClick={createAlert}
+              disabled={creatingAlert || !alertPrice}
+              className="px-4 py-2 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-50"
+            >
+              {creatingAlert ? "..." : "Create"}
+            </button>
+          </div>
+          {/* Current alerts for this symbol */}
+          {alerts.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+              {alerts.map((a) => (
+                <span
+                  key={a.id}
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-full ${
+                    a.direction === "above"
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : "bg-red-500/10 text-red-400"
+                  }`}
+                >
+                  {a.direction === "above" ? "↑" : "↓"} ${(a.targetPrice / 100).toFixed(2)}
+                  <button
+                    onClick={() => deleteAlert(a.id)}
+                    className="ml-0.5 hover:opacity-70"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tab Switcher */}
       <div className="flex gap-2">
@@ -268,9 +416,7 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-5 py-2 rounded-full text-sm font-bold transition-all capitalize ${
-              activeTab === tab
-                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                : "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)] hover:bg-[var(--card)]"
+              activeTab === tab ? pillActive : pillInactive
             }`}
           >
             {tab === "chart" ? "Chart" : "Fundamentals"}
@@ -284,7 +430,7 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
       {/* Chart + TA sections (hidden when Fundamentals tab active) */}
       {activeTab === "chart" && (<>
       <div className="rounded-2xl bg-[var(--card)] shadow-[0_2px_32px_rgba(0,0,0,0.04)] p-6">
-        {/* Controls Row */}
+        {/* Controls Row — unified button style */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           {/* Range buttons */}
           <div className="flex gap-1.5">
@@ -293,25 +439,21 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
                 key={r}
                 onClick={() => setRange(r)}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  range === r
-                    ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                    : "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]"
+                  range === r ? pillActive : pillInactive
                 }`}
               >
                 {r}
               </button>
             ))}
           </div>
-          {/* Interval buttons */}
+          {/* Interval buttons — SAME style as range */}
           <div className="flex gap-1.5">
             {INTERVALS.map((iv) => (
               <button
                 key={iv.key}
                 onClick={() => setInterval(iv.key)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  interval === iv.key
-                    ? "bg-[var(--on-surface)] text-[var(--surface)]"
-                    : "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]"
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  interval === iv.key ? pillActive : pillInactive
                 }`}
               >
                 {iv.label}
@@ -323,7 +465,7 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
             <button
               onClick={() => setShowFib(!showFib)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                showFib ? "bg-[#6e5d35] text-white" : "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)]"
+                showFib ? "bg-[#6e5d35] text-white" : pillInactive
               }`}
             >
               Fibonacci
@@ -331,7 +473,7 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
             <button
               onClick={() => setShowSR(!showSR)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                showSR ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "bg-[var(--surface-container-low)] text-[var(--on-surface-variant)]"
+                showSR ? pillActive : pillInactive
               }`}
             >
               S/R
@@ -349,6 +491,7 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
             emaLines={emaLines}
             srLevels={srLevels}
             fibLevels={fibLevels}
+            alertLevels={alertLevels}
           />
         ) : (
           <div className="h-[420px] flex flex-col items-center justify-center gap-2">
@@ -398,7 +541,6 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
                     width: `${Math.min(100, Math.max(0, ((quote?.currentPrice ?? ta.week52Low) - ta.week52Low) / (ta.week52High - ta.week52Low) * 100))}%`
                   }}
                 />
-                {/* Current price marker */}
                 <div
                   className="absolute top-[-3px] w-2 h-[14px] rounded-sm bg-white border border-[var(--on-surface-variant)]"
                   style={{
@@ -611,7 +753,6 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
                   <span className="text-sm text-[var(--on-surface-variant)]">From <span className="font-bold text-[var(--foreground)]">{total}</span> analysts</span>
                   <span className="text-xs text-[var(--on-surface-variant)]">{recommendation.period}</span>
                 </div>
-                {/* Bar chart */}
                 <div className="flex h-8 rounded-full overflow-hidden">
                   {items.filter((i) => i.count > 0).map((item) => (
                     <div
@@ -623,14 +764,10 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
                     </div>
                   ))}
                 </div>
-                {/* Legend */}
                 <div className="grid grid-cols-5 gap-2">
                   {items.map((item) => (
                     <div key={item.label} className="text-center">
-                      <div
-                        className="text-xl font-bold mb-0.5"
-                        style={{ color: item.color }}
-                      >
+                      <div className="text-xl font-bold mb-0.5" style={{ color: item.color }}>
                         {item.count}
                       </div>
                       <div className="text-[10px] text-[var(--on-surface-variant)] leading-tight">{item.label}</div>

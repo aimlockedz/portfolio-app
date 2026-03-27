@@ -16,10 +16,10 @@ export async function GET() {
     const results = await Promise.all(
       SYMBOLS.map(async (item) => {
         try {
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(item.symbol)}?range=1d&interval=5m`;
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(item.symbol)}?range=1d&interval=1m`;
           const res = await fetch(url, {
             headers: { "User-Agent": "Mozilla/5.0" },
-            next: { revalidate: 60 },
+            cache: "no-store", // Always fresh data
           });
           const json = await res.json();
           const meta = json.chart?.result?.[0]?.meta;
@@ -37,7 +37,11 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ markets: results });
+    return NextResponse.json({ markets: results }, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch {
     return NextResponse.json({ markets: [] }, { status: 500 });
   }

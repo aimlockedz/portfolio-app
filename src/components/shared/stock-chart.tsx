@@ -30,11 +30,17 @@ interface SRLevel {
   type: "support" | "resistance";
 }
 
+interface AlertLevel {
+  value: number;
+  direction: "above" | "below";
+}
+
 interface StockChartProps {
   candles: Candle[];
   emaLines?: EMALine[];
   srLevels?: SRLevel[];
   fibLevels?: { label: string; value: number }[];
+  alertLevels?: AlertLevel[];
   height?: number;
 }
 
@@ -43,6 +49,7 @@ export function StockChart({
   emaLines = [],
   srLevels = [],
   fibLevels = [],
+  alertLevels = [],
   height = 420,
 }: StockChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -128,6 +135,18 @@ export function StockChart({
       });
     });
 
+    // Price Alert levels — prominent, distinct colors
+    alertLevels.forEach((alert) => {
+      candleSeries.createPriceLine({
+        price: alert.value,
+        color: alert.direction === "above" ? "#10b981" : "#ef4444",
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: alert.direction === "above" ? `▲ Alert $${alert.value.toFixed(2)}` : `▼ Alert $${alert.value.toFixed(2)}`,
+      });
+    });
+
     // Volume
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: "volume" },
@@ -159,7 +178,7 @@ export function StockChart({
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [candles, emaLines, srLevels, fibLevels, height]);
+  }, [candles, emaLines, srLevels, fibLevels, alertLevels, height]);
 
   return <div ref={containerRef} className="w-full" />;
 }
