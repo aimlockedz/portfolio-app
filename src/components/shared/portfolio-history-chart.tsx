@@ -20,7 +20,7 @@ const PERIODS = [
 export function PortfolioHistoryChart() {
   const [data, setData] = useState<DataPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState("3m");
+  const [period, setPeriod] = useState("all");
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 

@@ -22,46 +22,65 @@ export async function GET(request: NextRequest) {
   const { user } = await lucia.validateSession(sessionId);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const period = request.nextUrl.searchParams.get("period") || "3m";
+  const period = request.nextUrl.searchParams.get("period") || "all";
 
   try {
     const portfolioRepo = new PortfolioRepository(db);
-    const holdings = await portfolioRepo.getHoldings(user.id);
     const transactions = await portfolioRepo.getTransactions(user.id);
 
-    if (holdings.length === 0) {
+    if (transactions.length === 0) {
       return NextResponse.json({ dataPoints: [] });
     }
 
-    // Determine date range
+    // Sort transactions by date ascending
+    const sortedTx = [...transactions].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Earliest transaction = start of investment history
+    const earliestDate = sortedTx[0].date;
     const now = new Date();
-    const startDate = new Date(now);
+
+    // Determine chart start date based on period
+    let chartStart = new Date(earliestDate);
     switch (period) {
-      case "1m": startDate.setMonth(startDate.getMonth() - 1); break;
-      case "3m": startDate.setMonth(startDate.getMonth() - 3); break;
-      case "6m": startDate.setMonth(startDate.getMonth() - 6); break;
-      case "1y": startDate.setFullYear(startDate.getFullYear() - 1); break;
-      case "all":
-        // Find earliest transaction
-        if (transactions.length > 0) {
-          const earliest = transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date);
-          startDate.setTime(earliest.getTime());
-        } else {
-          startDate.setFullYear(startDate.getFullYear() - 1);
-        }
+      case "1m": {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - 1);
+        if (d > earliestDate) chartStart = d;
         break;
-      default: startDate.setMonth(startDate.getMonth() - 3);
+      }
+      case "3m": {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - 3);
+        if (d > earliestDate) chartStart = d;
+        break;
+      }
+      case "6m": {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - 6);
+        if (d > earliestDate) chartStart = d;
+        break;
+      }
+      case "1y": {
+        const d = new Date(now);
+        d.setFullYear(d.getFullYear() - 1);
+        if (d > earliestDate) chartStart = d;
+        break;
+      }
+      // "all" uses earliestDate (already set)
     }
 
-    // Fetch historical prices for all symbols
-    const symbols = [...new Set(holdings.map((h) => h.symbol))];
+    // Reconstruct holdings at each point in time from transactions
+    // Build a timeline of transactions sorted by date
+    const allSymbols = [...new Set(sortedTx.map((t) => t.symbol))];
+
+    // Fetch historical prices from earliest date
     const priceHistory: Record<string, Record<string, number>> = {};
 
     await Promise.all(
-      symbols.map(async (symbol) => {
+      allSymbols.map(async (symbol) => {
         try {
           const result: any = await yf.chart(symbol, {
-            period1: startDate.toISOString().split("T")[0],
+            period1: earliestDate.toISOString().split("T")[0],
             period2: now.toISOString().split("T")[0],
             interval: "1d",
           });
@@ -78,35 +97,77 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Build daily portfolio value
-    // For each trading day, calculate total portfolio value based on holdings at that time
-    // Simple approach: use current holdings quantities (doesn't reconstruct from transactions)
+    // Get all trading dates from price data
     const allDates = new Set<string>();
     Object.values(priceHistory).forEach((prices) => {
       Object.keys(prices).forEach((d) => allDates.add(d));
     });
-
     const sortedDates = [...allDates].sort();
-    const totalCost = holdings.reduce((sum, h) => sum + (h.totalQuantity * h.averageCost) / 100, 0);
 
-    const dataPoints = sortedDates.map((date) => {
-      let portfolioValue = 0;
-      holdings.forEach((h) => {
-        const price = priceHistory[h.symbol]?.[date];
-        if (price) {
-          portfolioValue += h.totalQuantity * price;
+    // For each date, reconstruct what we held at that point
+    // Walk through transactions and build cumulative holdings + cost
+    const chartStartStr = chartStart.toISOString().split("T")[0];
+    let txIdx = 0;
+    const currentHoldings: Record<string, number> = {}; // symbol -> qty
+    const currentCost: Record<string, number> = {}; // symbol -> total cost in dollars
+
+    const dataPoints: { date: string; value: number; cost: number }[] = [];
+
+    for (const date of sortedDates) {
+      // Apply all transactions up to and including this date
+      while (txIdx < sortedTx.length) {
+        const tx = sortedTx[txIdx];
+        const txDate = tx.date.toISOString().split("T")[0];
+        if (txDate > date) break;
+
+        const sym = tx.symbol;
+        const qty = tx.quantity;
+        const price = tx.price / 100; // cents to dollars
+
+        if (tx.type === "BUY") {
+          currentHoldings[sym] = (currentHoldings[sym] || 0) + qty;
+          currentCost[sym] = (currentCost[sym] || 0) + qty * price;
         } else {
-          // Use average cost as fallback
-          portfolioValue += (h.totalQuantity * h.averageCost) / 100;
+          // SELL
+          const prevQty = currentHoldings[sym] || 0;
+          const prevCost = currentCost[sym] || 0;
+          const avgCostPerShare = prevQty > 0 ? prevCost / prevQty : 0;
+          currentHoldings[sym] = Math.max(0, prevQty - qty);
+          currentCost[sym] = Math.max(0, prevCost - qty * avgCostPerShare);
         }
-      });
+        txIdx++;
+      }
 
-      return {
-        date,
-        value: parseFloat(portfolioValue.toFixed(2)),
-        cost: parseFloat(totalCost.toFixed(2)),
-      };
-    });
+      // Skip dates before chart start
+      if (date < chartStartStr) continue;
+
+      // Skip dates before any transaction happened (no holdings yet)
+      const totalQty = Object.values(currentHoldings).reduce((a, b) => a + b, 0);
+      if (totalQty === 0 && dataPoints.length === 0) continue;
+
+      // Calculate portfolio value for this date
+      let portfolioValue = 0;
+      let totalCostBasis = 0;
+
+      for (const [sym, qty] of Object.entries(currentHoldings)) {
+        if (qty <= 0) continue;
+        const price = priceHistory[sym]?.[date];
+        if (price) {
+          portfolioValue += qty * price;
+        }
+        // If no price for this date, skip (don't add fake value)
+        totalCostBasis += currentCost[sym] || 0;
+      }
+
+      // Only add data point if we have some value
+      if (portfolioValue > 0 || totalCostBasis > 0) {
+        dataPoints.push({
+          date,
+          value: parseFloat(portfolioValue.toFixed(2)),
+          cost: parseFloat(totalCostBasis.toFixed(2)),
+        });
+      }
+    }
 
     return NextResponse.json({ dataPoints });
   } catch (err) {
