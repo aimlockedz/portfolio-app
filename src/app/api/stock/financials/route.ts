@@ -19,11 +19,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const result: any = await yf.quoteSummary(symbol, {
-      modules: ["financialData", "defaultKeyStatistics", "earnings", "earningsHistory"] as any,
+      modules: ["financialData", "defaultKeyStatistics", "summaryDetail", "earnings", "earningsHistory"] as any,
     });
 
     const fd = result.financialData || {};
     const ks = result.defaultKeyStatistics || {};
+    const sd = result.summaryDetail || {};
     const earningsQ: any[] = result.earnings?.financialsChart?.quarterly || [];
     const earningsY: any[] = result.earnings?.financialsChart?.yearly || [];
     const epsHistory: any[] = result.earningsHistory?.history || [];
@@ -57,7 +58,22 @@ export async function GET(request: NextRequest) {
       earnings: num(y.earnings),
     }));
 
-    // TTM (trailing twelve months) summary from financialData
+    // Use Yahoo's pre-calculated values from summaryDetail for accurate ratios
+    // summaryDetail provides trailingPE, forwardPE, priceToBook etc. that are
+    // properly aligned with market timing
+    const trailingPE = num(sd.trailingPE) || num(ks.trailingEps) > 0 ? num(sd.trailingPE) || null : null;
+    const forwardPE = num(sd.forwardPE) || num(ks.forwardPE) || null;
+
+    // Validate margins — Yahoo returns as decimals (0.25 = 25%), multiply by 100
+    // But sometimes returns 0 or undefined, so guard against that
+    function pct(v: any): number {
+      const n = num(v);
+      // If the value is > 1, it's likely already a percentage
+      if (Math.abs(n) > 5) return n;
+      return n * 100;
+    }
+
+    // TTM (trailing twelve months) summary
     const ttm = {
       revenue: num(fd.totalRevenue),
       grossProfit: num(fd.grossProfits),
@@ -68,18 +84,19 @@ export async function GET(request: NextRequest) {
       totalCash: num(fd.totalCash),
       totalDebt: num(fd.totalDebt),
       // Margins (as percentages)
-      grossMargin: num(fd.grossMargins) * 100,
-      operatingMargin: num(fd.operatingMargins) * 100,
-      netMargin: num(fd.profitMargins) * 100,
-      ebitdaMargin: num(fd.ebitdaMargins) * 100,
-      // Ratios
-      peRatio: num(ks.forwardPE) || null,
-      trailingPE: num(ks.trailingEps) > 0 ? num(fd.currentPrice) / num(ks.trailingEps) : null,
-      priceToBook: num(ks.priceToBook) || null,
+      grossMargin: pct(fd.grossMargins),
+      operatingMargin: pct(fd.operatingMargins),
+      netMargin: pct(fd.profitMargins),
+      ebitdaMargin: pct(fd.ebitdaMargins),
+      // Ratios — use Yahoo's pre-calculated values from summaryDetail
+      peRatio: forwardPE,
+      trailingPE: trailingPE,
+      forwardPE: forwardPE,
+      priceToBook: num(sd.priceToBook) || num(ks.priceToBook) || null,
       evToEbitda: num(ks.enterpriseToEbitda) || null,
       evToRevenue: num(ks.enterpriseToRevenue) || null,
-      roe: num(fd.returnOnEquity) * 100,
-      roa: num(fd.returnOnAssets) * 100,
+      roe: pct(fd.returnOnEquity),
+      roa: pct(fd.returnOnAssets),
       debtToEquity: num(fd.debtToEquity),
       currentRatio: num(fd.currentRatio),
       quickRatio: num(fd.quickRatio),
@@ -87,14 +104,19 @@ export async function GET(request: NextRequest) {
       trailingEps: num(ks.trailingEps),
       forwardEps: num(ks.forwardEps),
       // Growth
-      earningsGrowth: num(fd.earningsGrowth) * 100,
-      revenueGrowth: num(fd.revenueGrowth) * 100,
+      earningsGrowth: pct(fd.earningsGrowth),
+      revenueGrowth: pct(fd.revenueGrowth),
       // Other
-      beta: num(ks.beta),
+      beta: num(sd.beta) || num(ks.beta),
       sharesOutstanding: num(ks.sharesOutstanding),
       enterpriseValue: num(ks.enterpriseValue),
       // Dividend
       lastDividend: num(ks.lastDividendValue),
+      dividendYield: num(sd.dividendYield) > 0 ? pct(sd.dividendYield) : null,
+      // Price ratios from summaryDetail (most accurate)
+      fiftyTwoWeekHigh: num(sd.fiftyTwoWeekHigh),
+      fiftyTwoWeekLow: num(sd.fiftyTwoWeekLow),
+      marketCap: num(sd.marketCap),
     };
 
     return NextResponse.json({ symbol, quarterly, annual, ttm });
