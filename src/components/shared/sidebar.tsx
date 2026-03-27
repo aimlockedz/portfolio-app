@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
   LayoutDashboard,
   Briefcase,
@@ -14,6 +15,8 @@ import {
   LogOut,
   ArrowRightLeft,
   Network,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { StockSearch } from "./stock-search";
 
@@ -35,13 +38,27 @@ const bottomItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
   return (
     <aside className="hidden md:flex flex-col py-8 px-4 gap-2 h-screen w-64 rounded-r-[2rem] overflow-hidden bg-[var(--surface-container-low)] sticky top-0 shrink-0">
-      {/* Logo */}
+      {/* Logo + Theme Toggle */}
       <div className="px-6 mb-8">
-        <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center mb-4">
-          <Briefcase className="h-5 w-5 text-[var(--primary-foreground)]" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center">
+            <Briefcase className="h-5 w-5 text-[var(--primary-foreground)]" />
+          </div>
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="w-9 h-9 rounded-full bg-[var(--surface-container-high)] hover:bg-[var(--surface-container)] flex items-center justify-center transition-all hover:scale-105"
+            title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4 text-[var(--on-surface-variant)]" />
+            ) : (
+              <Moon className="h-4 w-4 text-[var(--on-surface-variant)]" />
+            )}
+          </button>
         </div>
         <h2 className="font-[var(--font-headline)] font-bold text-lg">
           StockPortfolio
