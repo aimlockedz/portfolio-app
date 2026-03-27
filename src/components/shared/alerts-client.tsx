@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Bell, BellRing, Plus, Trash2, TrendingUp, TrendingDown, X } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Bell, BellRing, Plus, Trash2, TrendingUp, TrendingDown, X, Search } from "lucide-react";
+
+interface SearchResult {
+  symbol: string;
+  description: string;
+  type: string;
+}
 
 interface Alert {
   id: string;
@@ -24,10 +30,61 @@ export function AlertsClient() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [symbol, setSymbol] = useState("");
+  const [symbolName, setSymbolName] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
   const [direction, setDirection] = useState<"above" | "below">("above");
   const [creating, setCreating] = useState(false);
   const [quoteChecks, setQuoteChecks] = useState<Record<string, QuoteCheck>>({});
+
+  // Search autocomplete
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleSymbolSearch(value: string) {
+    setSearchQuery(value);
+    setSymbol(value.toUpperCase());
+    setSymbolName("");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.length < 1) {
+      setSearchResults([]);
+      setSearchOpen(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`/api/stock/search?q=${encodeURIComponent(value)}`);
+        const data = await res.json();
+        setSearchResults(data.results || []);
+        setSearchOpen(true);
+      } catch {
+        setSearchResults([]);
+      }
+      setSearchLoading(false);
+    }, 300);
+  }
+
+  function selectSymbol(sym: string, name: string) {
+    setSymbol(sym);
+    setSymbolName(name);
+    setSearchQuery(sym);
+    setSearchResults([]);
+    setSearchOpen(false);
+  }
 
   async function loadAlerts() {
     try {
@@ -89,6 +146,8 @@ export function AlertsClient() {
         }),
       });
       setSymbol("");
+      setSymbolName("");
+      setSearchQuery("");
       setTargetPrice("");
       setShowForm(false);
       await loadAlerts();
@@ -133,15 +192,45 @@ export function AlertsClient() {
       {showForm && (
         <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-5 space-y-4">
           <div className="grid sm:grid-cols-3 gap-3">
-            <div>
+            <div ref={searchRef} className="relative">
               <label className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium mb-1 block">Symbol</label>
-              <input
-                type="text"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="AAPL"
-                className="w-full px-3 py-2 rounded-lg bg-[var(--surface-container)] border border-[var(--border)] text-sm font-semibold outline-none focus:border-[var(--primary)]"
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--on-surface-variant)]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSymbolSearch(e.target.value)}
+                  onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
+                  placeholder="Search AAPL, NVDA..."
+                  className="w-full pl-9 pr-3 py-2 rounded-lg bg-[var(--surface-container)] border border-[var(--border)] text-sm font-semibold outline-none focus:border-[var(--primary)]"
+                />
+              </div>
+              {symbolName && (
+                <p className="text-[10px] text-[var(--primary)] font-medium mt-1">{symbolName}</p>
+              )}
+              {searchOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 rounded-xl bg-[var(--card)] border border-[var(--border)] shadow-xl z-50 max-h-52 overflow-y-auto">
+                  {searchLoading ? (
+                    <div className="px-4 py-3 text-sm text-[var(--on-surface-variant)]">Searching...</div>
+                  ) : searchResults.length > 0 ? (
+                    searchResults.map((r) => (
+                      <button
+                        key={r.symbol}
+                        onClick={() => selectSymbol(r.symbol, r.description)}
+                        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[var(--surface-container-high)] transition-colors text-left"
+                      >
+                        <div>
+                          <span className="text-sm font-bold">{r.symbol}</span>
+                          <span className="text-xs text-[var(--on-surface-variant)] ml-2 truncate">{r.description}</span>
+                        </div>
+                        <span className="text-[10px] text-[var(--on-surface-variant)] uppercase">{r.type}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-[var(--on-surface-variant)]">No results found</div>
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium mb-1 block">Target Price ($)</label>
