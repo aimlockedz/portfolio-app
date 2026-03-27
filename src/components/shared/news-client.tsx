@@ -143,7 +143,7 @@ export function NewsClient() {
       <div className="space-y-3">
         {articles.map((article) => {
           const isExpanded = expanded.has(article.id);
-          const hasThai = article.summaryTh && article.summaryTh !== article.summary;
+          const hasThai = article.summaryTh && article.summaryTh.length > 0;
 
           return (
             <div

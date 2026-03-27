@@ -4,15 +4,16 @@ export const dynamic = "force-dynamic";
 
 async function summarizeInThai(articles: { headline: string; summary: string }[]): Promise<string[]> {
   const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey || articles.length === 0) return articles.map((a) => a.summary);
+  if (!geminiKey || articles.length === 0) return [];
 
   const prompt = `คุณเป็นนักวิเคราะห์การเงิน สรุปข่าวต่อไปนี้เป็นภาษาไทย แต่ละข่าวสรุป 2-3 ประโยค กระชับ เข้าใจง่าย เน้นผลกระทบต่อตลาดหุ้น/นักลงทุน
 
-ตอบในรูปแบบ JSON array ของ string เท่านั้น ไม่ต้องมี markdown
+ตอบเป็น JSON array ของ string เท่านั้น ห้ามมี markdown หรือ code block
+จำนวนสมาชิกใน array ต้องเท่ากับ ${articles.length} ข่าว
 ตัวอย่าง: ["สรุปข่าว 1", "สรุปข่าว 2"]
 
 ข่าว:
-${articles.map((a, i) => `${i + 1}. ${a.headline}\n${a.summary}`).join("\n\n")}`;
+${articles.map((a, i) => `${i + 1}. หัวข้อ: ${a.headline}\nรายละเอียด: ${a.summary}`).join("\n\n")}`;
 
   try {
     const res = await fetch(
@@ -27,22 +28,30 @@ ${articles.map((a, i) => `${i + 1}. ${a.headline}\n${a.summary}`).join("\n\n")}`
       }
     );
 
+    if (!res.ok) return [];
+
     const json = await res.json();
     const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Extract JSON array from response
-    const match = text.match(/\[[\s\S]*\]/);
+    // Extract JSON array from response (handle markdown code blocks too)
+    const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    const match = cleaned.match(/\[[\s\S]*\]/);
     if (match) {
       const parsed = JSON.parse(match[0]);
-      if (Array.isArray(parsed) && parsed.length === articles.length) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        // Pad or truncate to match article count
+        const result: string[] = [];
+        for (let i = 0; i < articles.length; i++) {
+          result.push(typeof parsed[i] === "string" ? parsed[i] : "");
+        }
+        return result;
       }
     }
   } catch {
-    // Fall through to original summaries
+    // Fall through
   }
 
-  return articles.map((a) => a.summary);
+  return [];
 }
 
 export async function GET(request: NextRequest) {
@@ -84,12 +93,14 @@ export async function GET(request: NextRequest) {
       raw.map((a) => ({ headline: a.headline, summary: a.summary }))
     );
 
+    const hasAI = thaiSummaries.length > 0 && thaiSummaries.some((s) => s.length > 0);
+
     const articles = raw.map((a, i) => ({
       ...a,
-      summaryTh: thaiSummaries[i] || a.summary,
+      summaryTh: thaiSummaries[i] || "",
     }));
 
-    return NextResponse.json({ articles });
+    return NextResponse.json({ articles, aiEnabled: hasAI });
   } catch {
     return NextResponse.json({ articles: [], error: "Failed to fetch news" }, { status: 500 });
   }

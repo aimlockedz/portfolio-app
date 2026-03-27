@@ -11,21 +11,27 @@ import { StockSymbolInput } from "./stock-symbol-input";
 export function AddWatchlistDialog() {
   const [open, setOpen] = useState(false);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [error, setError] = useState("");
   const router = useRouter();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
     const formData = new FormData(event.currentTarget);
     const response = await fetch("/api/watchlist", { method: "POST", body: formData });
     if (response.ok) {
       setOpen(false);
       setCurrentPrice(null);
+      setError("");
       router.refresh();
+    } else {
+      const json = await response.json().catch(() => null);
+      setError(json?.error || "Failed to add");
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setCurrentPrice(null); }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setCurrentPrice(null); setError(""); } }}>
       <DialogTrigger asChild>
         <Button variant="outline" className="rounded-full border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary-container)] px-5">
           <Plus className="mr-2 h-4 w-4" /> Add to Watchlist
@@ -92,6 +98,12 @@ export function AddWatchlistDialog() {
               />
             </div>
           </div>
+
+          {error && (
+            <div className="mx-6 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2.5">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
 
           <DialogFooter className="px-6 pb-6 pt-2">
             <Button

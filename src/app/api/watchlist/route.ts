@@ -31,6 +31,13 @@ export async function POST(request: Request) {
   }
 
   const watchlistRepo = new WatchlistRepository(db);
+
+  // Check for duplicate
+  const existing = await watchlistRepo.getItems(user.id);
+  if (existing.some((item) => item.symbol.toUpperCase() === symbol.toUpperCase())) {
+    return Response.json({ error: `${symbol.toUpperCase()} is already in your watchlist` }, { status: 409 });
+  }
+
   await watchlistRepo.addItem(user.id, { symbol, convictionLevel, notes });
 
   return new Response(null, { status: 200 });
