@@ -411,7 +411,7 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
                   <tr
                     key={r.id}
                     onClick={() => router.push(`/stock/${r.symbol}`)}
-                    className={`border-t border-[var(--border)] hover:bg-[var(--surface-container-low)] transition-colors cursor-pointer ${
+                    className={`group border-t border-[var(--border)] hover:bg-[var(--surface-container-low)] transition-colors cursor-pointer ${
                       hasTriggered ? "bg-emerald-500/[0.03]" : ""
                     }`}
                   >
