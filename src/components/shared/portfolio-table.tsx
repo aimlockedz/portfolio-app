@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TrendingUp, TrendingDown, Minus, PieChart, Trash2, Bell, BellRing } from "lucide-react";
+import { useToast } from "@/components/ui/toast-provider";
 
 interface Holding {
   id: string;
@@ -176,6 +177,7 @@ function HoldingsPieChart({ data }: { data: { symbol: string; value: number; pct
 
 export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
   const router = useRouter();
+  const { confirm, success: toastSuccess, error: toastError } = useToast();
   const [quotes, setQuotes] = useState<Record<string, QuoteData>>({});
   const [profiles, setProfiles] = useState<Record<string, ProfileData>>({});
   const [loading, setLoading] = useState(true);
@@ -259,9 +261,17 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
       .catch(() => {});
   }, [localHoldings]);
 
-  async function deleteHolding(holdingId: string, e: React.MouseEvent) {
+  async function deleteHolding(holdingId: string, symbol: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm("Are you sure you want to remove this stock and all its transactions?")) return;
+    const ok = await confirm({
+      title: "Remove Stock",
+      message: `Remove ${symbol} and all its transactions from your portfolio? This action cannot be undone.`,
+      confirmText: "Remove",
+      cancelText: "Keep",
+      variant: "danger",
+      icon: "trash",
+    });
+    if (!ok) return;
     setDeleting(holdingId);
     try {
       const res = await fetch("/api/portfolio/holdings", {
@@ -271,8 +281,13 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
       });
       if (res.ok) {
         setLocalHoldings((prev) => prev.filter((h) => h.id !== holdingId));
+        toastSuccess("Stock Removed", `${symbol} has been removed from your portfolio.`);
+      } else {
+        toastError("Failed", "Could not remove the stock. Please try again.");
       }
-    } catch { /* skip */ }
+    } catch {
+      toastError("Error", "Something went wrong.");
+    }
     setDeleting(null);
   }
 
@@ -460,7 +475,7 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
                     </td>
                     <td className="text-center px-2 py-3">
                       <button
-                        onClick={(e) => deleteHolding(r.id, e)}
+                        onClick={(e) => deleteHolding(r.id, r.symbol, e)}
                         disabled={deleting === r.id}
                         className="p-1.5 rounded-full hover:bg-red-500/10 text-[var(--on-surface-variant)] hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
                         style={{ opacity: deleting === r.id ? 0.5 : undefined }}

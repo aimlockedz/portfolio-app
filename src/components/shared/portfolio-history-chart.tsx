@@ -10,17 +10,21 @@ interface DataPoint {
 }
 
 const PERIODS = [
-  { label: "1M", value: "1m" },
+  { label: "1D", value: "1d" },
+  { label: "7D", value: "7d" },
+  { label: "30D", value: "30d" },
   { label: "3M", value: "3m" },
   { label: "6M", value: "6m" },
   { label: "1Y", value: "1y" },
+  { label: "3Y", value: "3y" },
+  { label: "5Y", value: "5y" },
   { label: "All", value: "all" },
 ];
 
 export function PortfolioHistoryChart() {
   const [data, setData] = useState<DataPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState("all");
+  const [period, setPeriod] = useState("30d");
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -50,12 +54,29 @@ export function PortfolioHistoryChart() {
   if (data.length === 0) {
     return (
       <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-5">
-        <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-          <LineChart className="h-4 w-4 text-[var(--primary)]" />
-          Portfolio History
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-sm flex items-center gap-2">
+            <LineChart className="h-4 w-4 text-[var(--primary)]" />
+            Portfolio History
+          </h3>
+          <div className="flex gap-1 flex-wrap justify-end">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+                  period === p.value
+                    ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                    : "bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)]"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="text-sm text-[var(--on-surface-variant)] text-center py-8">
-          No portfolio data to display yet.
+          No portfolio data for this period.
         </p>
       </div>
     );
@@ -78,13 +99,20 @@ export function PortfolioHistoryChart() {
   const maxVal = Math.max(...allVals) * 1.02;
   const range = maxVal - minVal || 1;
 
-  const toX = (i: number) => PAD_L + (i / (data.length - 1)) * chartW;
+  const toX = (i: number) => {
+    if (data.length <= 1) return PAD_L + chartW / 2;
+    return PAD_L + (i / (data.length - 1)) * chartW;
+  };
   const toY = (v: number) => PAD_T + chartH - ((v - minVal) / range) * chartH;
 
   // Value line path
-  const valuePath = data.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(d.value).toFixed(1)}`).join(" ");
-  // Cost line path (horizontal since it's constant)
-  const costPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(d.cost).toFixed(1)}`).join(" ");
+  const valuePath = data
+    .map((d, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(d.value).toFixed(1)}`)
+    .join(" ");
+  // Cost line path
+  const costPath = data
+    .map((d, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(d.cost).toFixed(1)}`)
+    .join(" ");
   // Gradient area
   const areaPath = `${valuePath} L${toX(data.length - 1).toFixed(1)},${(PAD_T + chartH).toFixed(1)} L${PAD_L},${(PAD_T + chartH).toFixed(1)} Z`;
 
@@ -94,13 +122,39 @@ export function PortfolioHistoryChart() {
   const totalChangePercent = first.value > 0 ? (totalChange / first.value) * 100 : 0;
   const isPositive = totalChange >= 0;
 
+  // Compare against cost basis for the P&L display
+  const unrealizedPnL = last.value - last.cost;
+  const unrealizedPct = last.cost > 0 ? (unrealizedPnL / last.cost) * 100 : 0;
+
   const hoverData = hoverIdx !== null ? data[hoverIdx] : last;
+  const hoverPnL = hoverData.value - hoverData.cost;
+  const hoverPct = hoverData.cost > 0 ? (hoverPnL / hoverData.cost) * 100 : 0;
+  const hoverPositive = hoverPnL >= 0;
 
   // Y-axis labels
   const yLabels = [minVal, minVal + range * 0.25, minVal + range * 0.5, minVal + range * 0.75, maxVal];
 
+  // Format value for Y-axis
+  function fmtY(v: number): string {
+    if (v >= 1000000) return `$${(v / 1000000).toFixed(1)}M`;
+    if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`;
+    return `$${v.toFixed(0)}`;
+  }
+
+  // Smart X-axis date label format
+  function fmtDate(dateStr: string): string {
+    const d = new Date(dateStr + "T00:00:00");
+    if (["1d", "7d"].includes(period)) {
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+    if (["30d", "3m"].includes(period)) {
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+    return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+  }
+
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
-    if (!svgRef.current || data.length === 0) return;
+    if (!svgRef.current || data.length <= 1) return;
     const rect = svgRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * W;
     const idx = Math.round(((x - PAD_L) / chartW) * (data.length - 1));
@@ -114,7 +168,7 @@ export function PortfolioHistoryChart() {
           <LineChart className="h-4 w-4 text-[var(--primary)]" />
           Portfolio History
         </h3>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap justify-end">
           {PERIODS.map((p) => (
             <button
               key={p.value}
@@ -139,11 +193,14 @@ export function PortfolioHistoryChart() {
             ${hoverData.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
-        <div className={`flex items-center gap-1 ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
-          {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+        <div className={`flex items-center gap-1 ${hoverPositive ? "text-emerald-400" : "text-red-400"}`}>
+          {hoverPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
           <span className="font-bold text-sm">
-            {isPositive ? "+" : ""}${totalChange.toFixed(2)} ({isPositive ? "+" : ""}{totalChangePercent.toFixed(2)}%)
+            {hoverPositive ? "+" : ""}${hoverPnL.toFixed(2)} ({hoverPositive ? "+" : ""}{hoverPct.toFixed(2)}%)
           </span>
+        </div>
+        <div className="text-[10px] text-[var(--on-surface-variant)]">
+          Cost: ${hoverData.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>
       </div>
 
@@ -156,7 +213,7 @@ export function PortfolioHistoryChart() {
         onMouseLeave={() => setHoverIdx(null)}
       >
         <defs>
-          <linearGradient id="valueGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="pfHistGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={isPositive ? "#34d399" : "#f87171"} stopOpacity="0.3" />
             <stop offset="100%" stopColor={isPositive ? "#34d399" : "#f87171"} stopOpacity="0" />
           </linearGradient>
@@ -167,13 +224,13 @@ export function PortfolioHistoryChart() {
           <g key={i}>
             <line x1={PAD_L} y1={toY(v)} x2={W - PAD_R} y2={toY(v)} stroke="var(--border)" strokeWidth="0.5" />
             <text x={PAD_L - 8} y={toY(v) + 3} textAnchor="end" fontSize="9" fill="var(--on-surface-variant)">
-              ${(v / 1000 >= 1 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0))}
+              {fmtY(v)}
             </text>
           </g>
         ))}
 
         {/* Area fill */}
-        <path d={areaPath} fill="url(#valueGrad)" />
+        <path d={areaPath} fill="url(#pfHistGrad)" />
 
         {/* Cost line (dashed) */}
         <path d={costPath} fill="none" stroke="var(--on-surface-variant)" strokeWidth="1" strokeDasharray="4 3" opacity="0.4" />
@@ -194,14 +251,27 @@ export function PortfolioHistoryChart() {
         )}
 
         {/* X-axis labels */}
-        {data.filter((_, i) => i % Math.max(1, Math.floor(data.length / 5)) === 0 || i === data.length - 1).map((d, i) => {
-          const idx = data.indexOf(d);
-          return (
-            <text key={i} x={toX(idx)} y={H - 5} textAnchor="middle" fontSize="9" fill="var(--on-surface-variant)">
-              {new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-            </text>
-          );
-        })}
+        {data
+          .filter(
+            (_, i) =>
+              i % Math.max(1, Math.floor(data.length / 6)) === 0 ||
+              i === data.length - 1
+          )
+          .map((d) => {
+            const idx = data.indexOf(d);
+            return (
+              <text
+                key={idx}
+                x={toX(idx)}
+                y={H - 5}
+                textAnchor="middle"
+                fontSize="9"
+                fill="var(--on-surface-variant)"
+              >
+                {fmtDate(d.date)}
+              </text>
+            );
+          })}
       </svg>
 
       {/* Legend */}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { ToastProvider } from "@/components/ui/toast-provider";
 
 export const metadata: Metadata = {
   title: "StockPortfolio - Personal Investment Control Tower",
@@ -22,7 +23,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

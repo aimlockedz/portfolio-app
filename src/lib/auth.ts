@@ -8,6 +8,7 @@ export function initializeLucia(db: ReturnType<typeof getDb>) {
   return new Lucia(adapter, {
     sessionExpiresIn: new TimeSpan(30, "d"),
     sessionCookie: {
+      expires: true, // persistent cookie — survives browser close, lasts 30 days
       attributes: {
         secure: process.env.NODE_ENV === "production",
       },

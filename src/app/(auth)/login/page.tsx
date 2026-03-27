@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock } from "lucide-react";
+import { useToast } from "@/components/ui/toast-provider";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -28,11 +30,14 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error || "Login failed");
+        const msg = data?.error || "Login failed";
+        toastError("Login Failed", msg);
+        setError(msg);
         setLoading(false);
         return;
       }
 
+      toastSuccess("Welcome back!", "Login successful. Redirecting...");
       router.push("/dashboard");
       router.refresh();
     } catch {

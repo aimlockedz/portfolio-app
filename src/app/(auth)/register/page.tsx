@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast-provider";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -23,12 +25,14 @@ export default function RegisterPage() {
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (password !== confirmPassword) {
+      toastError("Validation Error", "Passwords do not match");
       setError("Passwords do not match");
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
+      toastError("Validation Error", "Password must be at least 6 characters");
       setError("Password must be at least 6 characters");
       setLoading(false);
       return;
@@ -42,11 +46,14 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error || "Registration failed");
+        const msg = data?.error || "Registration failed";
+        toastError("Registration Failed", msg);
+        setError(msg);
         setLoading(false);
         return;
       }
 
+      toastSuccess("Account Created!", "Welcome to StockPortfolio. Redirecting...");
       router.push("/dashboard");
       router.refresh();
     } catch {

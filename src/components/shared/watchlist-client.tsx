@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, RefreshCw } from "lucide-react";
+import { useToast } from "@/components/ui/toast-provider";
 
 interface WatchlistItem {
   id: string;
@@ -62,6 +63,7 @@ export function WatchlistClient({ items }: { items: WatchlistItem[] }) {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
+  const { confirm, success: toastSuccess } = useToast();
 
   const fetchQuotes = async () => {
     if (items.length === 0) { setLoading(false); return; }
@@ -78,10 +80,19 @@ export function WatchlistClient({ items }: { items: WatchlistItem[] }) {
   useEffect(() => { fetchQuotes(); }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Remove from watchlist?")) return;
+    const ok = await confirm({
+      title: "Remove from Watchlist",
+      message: "Remove this stock from your watchlist?",
+      confirmText: "Remove",
+      cancelText: "Keep",
+      variant: "danger",
+      icon: "trash",
+    });
+    if (!ok) return;
     setDeleting(id);
     try {
       await fetch(`/api/watchlist/${id}`, { method: "DELETE" });
+      toastSuccess("Removed", "Stock removed from watchlist.");
       router.refresh();
     } catch { /* ignore */ }
     setDeleting(null);
