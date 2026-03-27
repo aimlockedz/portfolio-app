@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Newspaper, ExternalLink, RefreshCw, Clock, Tag } from "lucide-react";
+import { Newspaper, ExternalLink, RefreshCw, Clock, Tag, Sparkles } from "lucide-react";
 
 interface Article {
   id: number;
@@ -10,13 +10,14 @@ interface Article {
   url: string;
   image: string | null;
   summary: string;
+  summaryTh: string;
   category: string;
   datetime: number;
   related: string;
 }
 
 const CATEGORIES = [
-  { key: "general", label: "General" },
+  { key: "general", label: "ทั่วไป" },
   { key: "forex", label: "Forex" },
   { key: "crypto", label: "Crypto" },
   { key: "merger", label: "M&A" },
@@ -24,11 +25,11 @@ const CATEGORIES = [
 
 function timeAgo(unix: number): string {
   const diff = Math.floor(Date.now() / 1000 - unix);
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return new Date(unix * 1000).toLocaleDateString();
+  if (diff < 60) return "เมื่อกี้";
+  if (diff < 3600) return `${Math.floor(diff / 60)} นาทีที่แล้ว`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ชม.ที่แล้ว`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)} วันที่แล้ว`;
+  return new Date(unix * 1000).toLocaleDateString("th-TH");
 }
 
 export function NewsClient() {
@@ -36,6 +37,7 @@ export function NewsClient() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("general");
   const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const fetchNews = useCallback(async (cat: string) => {
     setLoading(true);
@@ -46,24 +48,36 @@ export function NewsClient() {
       if (json.error) setError(json.error);
       setArticles(json.articles || []);
     } catch {
-      setError("Failed to load news");
+      setError("ไม่สามารถโหลดข่าวได้");
     }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchNews(category); }, [category, fetchNews]);
 
+  const toggleExpand = (id: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[var(--primary)]/10 rounded-xl">
+          <div className="p-2.5 rounded-xl" style={{ backgroundColor: "rgba(var(--primary-rgb, 26,107,80), 0.1)" }}>
             <Newspaper className="h-6 w-6 text-[var(--primary)]" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Market News</h1>
-            <p className="text-sm text-[var(--on-surface-variant)]">Live updates from Finnhub</p>
+            <h1 className="text-2xl font-bold">ข่าวตลาด</h1>
+            <p className="text-sm text-[var(--on-surface-variant)] flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              สรุปอัตโนมัติโดย AI เป็นภาษาไทย
+            </p>
           </div>
         </div>
         <button
@@ -71,7 +85,7 @@ export function NewsClient() {
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-[var(--surface-container-high)] hover:bg-[var(--surface-container-highest)] transition-colors"
         >
           <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
-          Refresh
+          รีเฟรช
         </button>
       </div>
 
@@ -99,94 +113,123 @@ export function NewsClient() {
         </div>
       )}
 
-      {/* Loading skeleton */}
+      {/* Loading */}
       {loading && articles.length === 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="rounded-2xl bg-[var(--card)] p-5 animate-pulse">
-              <div className="h-4 w-20 bg-[var(--surface-container-high)] rounded mb-3" />
-              <div className="h-5 w-3/4 bg-[var(--surface-container-high)] rounded mb-2" />
-              <div className="h-4 w-1/2 bg-[var(--surface-container-high)] rounded mb-4" />
-              <div className="h-3 w-full bg-[var(--surface-container-high)] rounded mb-1" />
-              <div className="h-3 w-2/3 bg-[var(--surface-container-high)] rounded" />
+              <div className="flex gap-4">
+                <div className="w-24 h-24 rounded-xl bg-[var(--surface-container-high)] shrink-0" />
+                <div className="flex-1">
+                  <div className="h-4 w-20 bg-[var(--surface-container-high)] rounded mb-2" />
+                  <div className="h-5 w-3/4 bg-[var(--surface-container-high)] rounded mb-2" />
+                  <div className="h-3 w-full bg-[var(--surface-container-high)] rounded mb-1" />
+                  <div className="h-3 w-2/3 bg-[var(--surface-container-high)] rounded" />
+                </div>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Articles grid */}
+      {/* Empty state */}
       {!loading && articles.length === 0 && !error && (
         <div className="rounded-2xl bg-[var(--card)] p-12 text-center">
-          <p className="text-[var(--on-surface-variant)]">No news articles found</p>
+          <p className="text-[var(--on-surface-variant)]">ไม่พบข่าว</p>
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {articles.map((article) => (
-          <a
-            key={article.id}
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group rounded-2xl bg-[var(--card)] hover:bg-[var(--surface-container-high)] transition-all overflow-hidden flex flex-col"
-          >
-            {/* Image */}
-            {article.image && (
-              <div className="relative h-40 overflow-hidden bg-[var(--surface-container-high)]">
-                <img
-                  src={article.image}
-                  alt=""
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  onError={(e) => (e.currentTarget.style.display = "none")}
-                />
-              </div>
-            )}
+      {/* Articles list */}
+      <div className="space-y-3">
+        {articles.map((article) => {
+          const isExpanded = expanded.has(article.id);
+          const hasThai = article.summaryTh && article.summaryTh !== article.summary;
 
-            <div className="p-5 flex-1 flex flex-col">
-              {/* Meta */}
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-[var(--primary)]/15 text-[var(--primary)]">
-                    {article.category}
-                  </span>
-                  <span className="text-xs text-[var(--on-surface-variant)]">{article.source}</span>
-                </div>
-                <div className="flex items-center gap-1 text-[var(--on-surface-variant)]">
-                  <Clock className="h-3 w-3" />
-                  <span className="text-[10px]">{timeAgo(article.datetime)}</span>
-                </div>
-              </div>
+          return (
+            <div
+              key={article.id}
+              className="rounded-2xl bg-[var(--card)] hover:bg-[var(--surface-container)] transition-all overflow-hidden"
+            >
+              <div className="flex gap-4 p-4">
+                {/* Thumbnail */}
+                {article.image && (
+                  <div className="w-24 h-24 md:w-32 md:h-24 rounded-xl overflow-hidden bg-[var(--surface-container-high)] shrink-0">
+                    <img
+                      src={article.image}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => (e.currentTarget.parentElement!.style.display = "none")}
+                    />
+                  </div>
+                )}
 
-              {/* Headline */}
-              <h3 className="font-bold text-sm leading-snug mb-2 group-hover:text-[var(--primary)] transition-colors line-clamp-2">
-                {article.headline}
-              </h3>
-
-              {/* Summary */}
-              <p className="text-xs text-[var(--on-surface-variant)] line-clamp-3 flex-1">
-                {article.summary}
-              </p>
-
-              {/* Related tickers */}
-              {article.related && (
-                <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-                  <Tag className="h-3 w-3 text-[var(--on-surface-variant)]" />
-                  {article.related.split(",").slice(0, 5).map((ticker) => (
-                    <span key={ticker} className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-container-highest)] font-medium">
-                      {ticker.trim()}
+                <div className="flex-1 min-w-0">
+                  {/* Meta row */}
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-[var(--primary)]/15 text-[var(--primary)]">
+                      {article.category}
                     </span>
-                  ))}
-                </div>
-              )}
+                    <span className="text-[11px] text-[var(--on-surface-variant)]">{article.source}</span>
+                    <span className="text-[11px] text-[var(--on-surface-variant)] flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5" />
+                      {timeAgo(article.datetime)}
+                    </span>
+                  </div>
 
-              {/* Read more */}
-              <div className="flex items-center gap-1 mt-3 text-[10px] text-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity">
-                <span>Read full article</span>
-                <ExternalLink className="h-3 w-3" />
+                  {/* Headline */}
+                  <h3 className="font-bold text-sm leading-snug mb-2 line-clamp-2">{article.headline}</h3>
+
+                  {/* Thai AI summary */}
+                  {hasThai && (
+                    <div className="mb-2 p-2.5 rounded-lg bg-[var(--surface-container-high)] border-l-2 border-[var(--primary)]">
+                      <div className="flex items-center gap-1 mb-1">
+                        <Sparkles className="h-3 w-3 text-[var(--primary)]" />
+                        <span className="text-[10px] font-bold text-[var(--primary)]">AI สรุป</span>
+                      </div>
+                      <p className="text-xs leading-relaxed">
+                        {isExpanded ? article.summaryTh : article.summaryTh.slice(0, 150)}
+                        {article.summaryTh.length > 150 && !isExpanded && "..."}
+                      </p>
+                      {article.summaryTh.length > 150 && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); toggleExpand(article.id); }}
+                          className="text-[10px] text-[var(--primary)] mt-1 hover:underline"
+                        >
+                          {isExpanded ? "ย่อ" : "อ่านต่อ"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Original summary fallback */}
+                  {!hasThai && (
+                    <p className="text-xs text-[var(--on-surface-variant)] line-clamp-2 mb-2">{article.summary}</p>
+                  )}
+
+                  {/* Related tickers + read link */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {article.related && article.related.split(",").slice(0, 4).map((ticker) => (
+                        <span key={ticker} className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-container-highest)] font-medium">
+                          {ticker.trim()}
+                        </span>
+                      ))}
+                    </div>
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[10px] text-[var(--primary)] hover:underline shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      อ่านฉบับเต็ม <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
-          </a>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
