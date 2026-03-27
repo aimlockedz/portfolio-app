@@ -5,7 +5,7 @@ A premium, edge-optimized personal investment control tower built for the Cloudf
 ## 🚀 Deployment Instructions (Cloudflare)
 
 ### 1. Prerequisites
-- [Cloudflare Account](https://dash.cloudflare.com)
+- Vercel+Turso
 - [Node.js installed](https://nodejs.org)
 
 ### 2. Setup Database (D1)
