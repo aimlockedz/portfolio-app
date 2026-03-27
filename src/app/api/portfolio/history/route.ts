@@ -3,13 +3,39 @@ import { cookies } from "next/headers";
 import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
 import { PortfolioRepository } from "@/db/repositories/portfolio";
-import YahooFinance from "yahoo-finance2";
 
 export const dynamic = "force-dynamic";
 
-const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// Use direct Yahoo Finance HTTP API (same as candles route — proven reliable)
+async function fetchDailyPrices(symbol: string, from: string, to: string): Promise<Record<string, number>> {
+  const prices: Record<string, number> = {};
+  try {
+    // Convert date strings to unix timestamps
+    const fromTs = Math.floor(new Date(from).getTime() / 1000);
+    const toTs = Math.floor(new Date(to).getTime() / 1000) + 86400; // +1 day to include today
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${fromTs}&period2=${toTs}&interval=1d`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      cache: "no-store",
+    });
+    const data = await res.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) return prices;
+
+    const timestamps = result.timestamp || [];
+    const closes = result.indicators?.quote?.[0]?.close || [];
+
+    for (let i = 0; i < timestamps.length; i++) {
+      if (closes[i] != null && closes[i] > 0) {
+        const dateStr = new Date(timestamps[i] * 1000).toISOString().split("T")[0];
+        prices[dateStr] = closes[i];
+      }
+    }
+  } catch { /* skip */ }
+  return prices;
+}
 
 export async function GET(request: NextRequest) {
   const db = getDb();
@@ -69,31 +95,15 @@ export async function GET(request: NextRequest) {
       // "all" uses earliestDate (already set)
     }
 
-    // Reconstruct holdings at each point in time from transactions
-    // Build a timeline of transactions sorted by date
     const allSymbols = [...new Set(sortedTx.map((t) => t.symbol))];
+    const fromStr = earliestDate.toISOString().split("T")[0];
+    const toStr = now.toISOString().split("T")[0];
 
-    // Fetch historical prices from earliest date
+    // Fetch historical prices using direct Yahoo HTTP API
     const priceHistory: Record<string, Record<string, number>> = {};
-
     await Promise.all(
       allSymbols.map(async (symbol) => {
-        try {
-          const result: any = await yf.chart(symbol, {
-            period1: earliestDate.toISOString().split("T")[0],
-            period2: now.toISOString().split("T")[0],
-            interval: "1d",
-          });
-
-          const quotes = result.quotes || [];
-          priceHistory[symbol] = {};
-          quotes.forEach((q: any) => {
-            if (q.date && q.close) {
-              const dateStr = new Date(q.date).toISOString().split("T")[0];
-              priceHistory[symbol][dateStr] = q.close;
-            }
-          });
-        } catch { /* skip */ }
+        priceHistory[symbol] = await fetchDailyPrices(symbol, fromStr, toStr);
       })
     );
 
@@ -105,7 +115,6 @@ export async function GET(request: NextRequest) {
     const sortedDates = [...allDates].sort();
 
     // For each date, reconstruct what we held at that point
-    // Walk through transactions and build cumulative holdings + cost
     const chartStartStr = chartStart.toISOString().split("T")[0];
     let txIdx = 0;
     const currentHoldings: Record<string, number> = {}; // symbol -> qty
@@ -155,11 +164,9 @@ export async function GET(request: NextRequest) {
         if (price) {
           portfolioValue += qty * price;
         }
-        // If no price for this date, skip (don't add fake value)
         totalCostBasis += currentCost[sym] || 0;
       }
 
-      // Only add data point if we have some value
       if (portfolioValue > 0 || totalCostBasis > 0) {
         dataPoints.push({
           date,

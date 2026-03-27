@@ -1,4 +1,4 @@
-import { Lucia } from "lucia";
+import { Lucia, TimeSpan } from "lucia";
 import { DrizzleSQLiteAdapter } from "@lucia-auth/adapter-drizzle";
 import { getDb } from "@/db/db";
 import { sessions, users } from "@/db/schema";
@@ -6,6 +6,7 @@ import { sessions, users } from "@/db/schema";
 export function initializeLucia(db: ReturnType<typeof getDb>) {
   const adapter = new DrizzleSQLiteAdapter(db, sessions, users);
   return new Lucia(adapter, {
+    sessionExpiresIn: new TimeSpan(30, "d"),
     sessionCookie: {
       attributes: {
         secure: process.env.NODE_ENV === "production",
