@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TrendingUp, TrendingDown, Minus, PieChart, BarChart3, DollarSign, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, PieChart } from "lucide-react";
 
 interface Holding {
   id: string;
@@ -146,17 +146,12 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
     const marketValue = marketPrice ? h.totalQuantity * marketPrice : 0;
     const pnl = marketValue - totalCost;
     const pnlPercent = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
-    const dayChange = quote ? quote.change * h.totalQuantity : 0;
     const industry = profiles[h.symbol]?.industry || "Other";
 
-    return { ...h, avgCost, totalCost, marketPrice, marketValue, pnl, pnlPercent, dayChange, industry, quote };
+    return { ...h, avgCost, totalCost, marketPrice, marketValue, pnl, pnlPercent, industry, quote };
   });
 
-  const totalCost = rows.reduce((s, r) => s + r.totalCost, 0);
   const totalValue = rows.reduce((s, r) => s + r.marketValue, 0);
-  const totalPnL = totalValue - totalCost;
-  const totalPnLPct = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
-  const totalDayChange = rows.reduce((s, r) => s + r.dayChange, 0);
 
   // Sector allocation
   const sectorMap: Record<string, number> = {};
@@ -168,60 +163,11 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
     .sort((a, b) => b[1] - a[1])
     .map(([label, value], i) => ({ label, value, color: SECTOR_COLORS[i % SECTOR_COLORS.length] }));
 
-  // Top/Bottom performers
-  const sorted = [...rows].filter((r) => r.marketPrice > 0).sort((a, b) => b.pnlPercent - a.pnlPercent);
-  const topPerformer = sorted[0];
-  const bottomPerformer = sorted[sorted.length - 1];
-
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="h-3.5 w-3.5 text-[var(--on-surface-variant)]" />
-            <span className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium">Total Value</span>
-          </div>
-          <p className="font-[var(--font-headline)] text-xl font-bold">
-            {loading ? "..." : `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          </p>
-        </div>
-
-        <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart3 className="h-3.5 w-3.5 text-[var(--on-surface-variant)]" />
-            <span className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium">Total Cost</span>
-          </div>
-          <p className="font-[var(--font-headline)] text-xl font-bold">
-            ${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-        </div>
-
-        <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Activity className="h-3.5 w-3.5 text-[var(--on-surface-variant)]" />
-            <span className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium">Total P&L</span>
-          </div>
-          <p className={`font-[var(--font-headline)] text-xl font-bold ${loading ? "" : totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {loading ? "..." : `${totalPnL >= 0 ? "+" : ""}$${totalPnL.toFixed(2)}`}
-          </p>
-          {!loading && <p className={`text-[10px] mt-0.5 ${totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>{totalPnL >= 0 ? "+" : ""}{totalPnLPct.toFixed(2)}%</p>}
-        </div>
-
-        <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            {totalDayChange >= 0 ? <TrendingUp className="h-3.5 w-3.5 text-emerald-400" /> : <TrendingDown className="h-3.5 w-3.5 text-red-400" />}
-            <span className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium">Today</span>
-          </div>
-          <p className={`font-[var(--font-headline)] text-xl font-bold ${loading ? "" : totalDayChange >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {loading ? "..." : `${totalDayChange >= 0 ? "+" : ""}$${totalDayChange.toFixed(2)}`}
-          </p>
-        </div>
-      </div>
-
-      {/* Donut Chart + Top/Bottom */}
+      {/* Sector Allocation + Holdings Allocation */}
       <div className="grid lg:grid-cols-3 gap-4">
-        {/* Sector Allocation */}
+        {/* Sector Donut */}
         <div className="lg:col-span-1 rounded-xl bg-[var(--card)] border border-[var(--border)] p-5">
           <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
             <PieChart className="h-4 w-4 text-[var(--primary)]" />
@@ -236,61 +182,32 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
           )}
         </div>
 
-        {/* Performance Summary */}
+        {/* Holdings Allocation Bars */}
         <div className="lg:col-span-2 rounded-xl bg-[var(--card)] border border-[var(--border)] p-5">
-          <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-            <Activity className="h-4 w-4 text-[var(--primary)]" />
-            Performance Summary
-          </h3>
-
-          {!loading && topPerformer && bottomPerformer && (
-            <div className="grid sm:grid-cols-2 gap-4 mb-4">
-              {/* Top */}
-              <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/10 p-4">
-                <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-medium mb-2">Best Performer</p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-bold">{topPerformer.symbol}</p>
-                    <p className="text-[10px] text-[var(--on-surface-variant)]">{profiles[topPerformer.symbol]?.name || ""}</p>
-                  </div>
-                  <span className="text-lg font-bold text-emerald-400">{topPerformer.pnlPercent >= 0 ? "+" : ""}{topPerformer.pnlPercent.toFixed(1)}%</span>
-                </div>
-              </div>
-              {/* Bottom */}
-              <div className="rounded-xl bg-red-500/5 border border-red-500/10 p-4">
-                <p className="text-[10px] uppercase tracking-wider text-red-400 font-medium mb-2">Worst Performer</p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-bold">{bottomPerformer.symbol}</p>
-                    <p className="text-[10px] text-[var(--on-surface-variant)]">{profiles[bottomPerformer.symbol]?.name || ""}</p>
-                  </div>
-                  <span className="text-lg font-bold text-red-400">{bottomPerformer.pnlPercent >= 0 ? "+" : ""}{bottomPerformer.pnlPercent.toFixed(1)}%</span>
-                </div>
-              </div>
+          <h3 className="font-bold text-sm mb-4">Holdings Allocation</h3>
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-5 bg-[var(--surface-container-high)] rounded-full animate-pulse" />
+              ))}
             </div>
-          )}
-
-          {/* Allocation bars */}
-          {!loading && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium mb-3">Holdings Allocation</p>
-              <div className="space-y-2">
-                {rows.filter((r) => r.marketValue > 0).sort((a, b) => b.marketValue - a.marketValue).map((r, i) => {
-                  const pct = totalValue > 0 ? (r.marketValue / totalValue) * 100 : 0;
-                  return (
-                    <div key={r.id} className="flex items-center gap-3">
-                      <span className="text-xs font-bold w-12">{r.symbol}</span>
-                      <div className="flex-1 h-4 rounded-full bg-[var(--surface-container-high)] overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%`, backgroundColor: SECTOR_COLORS[i % SECTOR_COLORS.length] }}
-                        />
-                      </div>
-                      <span className="text-[11px] font-semibold w-10 text-right">{pct.toFixed(1)}%</span>
+          ) : (
+            <div className="space-y-2">
+              {rows.filter((r) => r.marketValue > 0).sort((a, b) => b.marketValue - a.marketValue).map((r, i) => {
+                const pct = totalValue > 0 ? (r.marketValue / totalValue) * 100 : 0;
+                return (
+                  <div key={r.id} className="flex items-center gap-3">
+                    <span className="text-xs font-bold w-12">{r.symbol}</span>
+                    <div className="flex-1 h-4 rounded-full bg-[var(--surface-container-high)] overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, backgroundColor: SECTOR_COLORS[i % SECTOR_COLORS.length] }}
+                      />
                     </div>
-                  );
-                })}
-              </div>
+                    <span className="text-[11px] font-semibold w-10 text-right">{pct.toFixed(1)}%</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
