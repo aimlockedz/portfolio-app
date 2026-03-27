@@ -5,6 +5,7 @@ import { initializeLucia } from "@/lib/auth";
 import { PortfolioRepository } from "@/db/repositories/portfolio";
 import { AddTransactionDialog } from "@/components/shared/add-transaction-dialog";
 import { PortfolioTable } from "@/components/shared/portfolio-table";
+import { PortfolioExtras } from "@/components/shared/portfolio-extras";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export default async function PortfolioPage() {
   const portfolioRepo = new PortfolioRepository(db);
   const holdings = await portfolioRepo.getHoldings(user.id);
 
+  const symbols = holdings.map((h) => h.symbol);
+
   return (
     <div className="p-6 lg:p-10 max-w-7xl space-y-6">
       <div className="flex justify-between items-center">
@@ -37,6 +40,9 @@ export default async function PortfolioPage() {
       </div>
 
       <PortfolioTable holdings={holdings} />
+
+      {/* Extra sections: History Chart, Correlation Matrix, Dividend Calendar */}
+      <PortfolioExtras symbols={symbols} />
     </div>
   );
 }

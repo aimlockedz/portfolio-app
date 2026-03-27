@@ -103,6 +103,34 @@ export const newsArticles = sqliteTable("news_articles", {
   url: text("url"),
 });
 
+// --- Price Alerts ---
+
+export const priceAlerts = sqliteTable("price_alerts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  symbol: text("symbol").notNull(),
+  targetPrice: integer("target_price").notNull(), // stored in cents
+  direction: text("direction").notNull(), // 'above' | 'below'
+  active: integer("active").notNull().default(1),
+  triggered: integer("triggered").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+// --- Portfolio Snapshots (daily value history) ---
+
+export const portfolioSnapshots = sqliteTable("portfolio_snapshots", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  date: text("date").notNull(), // YYYY-MM-DD
+  totalValue: integer("total_value").notNull(), // cents
+  totalCost: integer("total_cost").notNull(), // cents
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 export const stockScores = sqliteTable("stock_scores", {
   id: text("id").primaryKey(),
   symbol: text("symbol").notNull().unique(),

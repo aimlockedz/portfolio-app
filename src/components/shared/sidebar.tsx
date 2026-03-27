@@ -17,6 +17,8 @@ import {
   Network,
   Sun,
   Moon,
+  Bell,
+  CalendarDays,
 } from "lucide-react";
 import { StockSearch } from "./stock-search";
 
@@ -28,6 +30,8 @@ const navItems = [
   { href: "/watchlist", label: "Watchlist", icon: TrendingUp },
   { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/news", label: "News", icon: Newspaper },
+  { href: "/alerts", label: "Price Alerts", icon: Bell },
+  { href: "/earnings", label: "Earnings", icon: CalendarDays },
   { href: "/exposure", label: "Exposure", icon: Network },
 ];
 
