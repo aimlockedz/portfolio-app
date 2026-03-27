@@ -3,55 +3,92 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 async function summarizeInThai(articles: { headline: string; summary: string }[]): Promise<string[]> {
+  // Try Groq first, then Gemini as fallback
+  const groqKey = process.env.GROQ_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey || articles.length === 0) return [];
 
-  const prompt = `คุณเป็นนักวิเคราะห์การเงิน สรุปข่าวต่อไปนี้เป็นภาษาไทย แต่ละข่าวสรุป 2-3 ประโยค กระชับ เข้าใจง่าย เน้นผลกระทบต่อตลาดหุ้น/นักลงทุน
+  if (articles.length === 0) return [];
 
+  const systemPrompt = "คุณเป็นนักวิเคราะห์การเงิน สรุปข่าวเป็นภาษาไทย กระชับ เข้าใจง่าย เน้นผลกระทบต่อตลาดหุ้น/นักลงทุน";
+
+  const userPrompt = `สรุปข่าว ${articles.length} ข่าวต่อไปนี้เป็นภาษาไทย แต่ละข่าวสรุป 2-3 ประโยค
 ตอบเป็น JSON array ของ string เท่านั้น ห้ามมี markdown หรือ code block
-จำนวนสมาชิกใน array ต้องเท่ากับ ${articles.length} ข่าว
-ตัวอย่าง: ["สรุปข่าว 1", "สรุปข่าว 2"]
+จำนวนสมาชิกใน array ต้องเท่ากับ ${articles.length}
 
-ข่าว:
-${articles.map((a, i) => `${i + 1}. หัวข้อ: ${a.headline}\nรายละเอียด: ${a.summary}`).join("\n\n")}`;
+${articles.map((a, i) => `${i + 1}. ${a.headline}\n${a.summary}`).join("\n\n")}`;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      {
+  // Try Groq (Llama 3.3 70B - free, fast)
+  if (groqKey) {
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqKey}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.3,
+          max_tokens: 4096,
         }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const text = json.choices?.[0]?.message?.content || "";
+        const parsed = parseJsonArray(text, articles.length);
+        if (parsed) return parsed;
       }
-    );
+    } catch { /* fall through */ }
+  }
 
-    if (!res.ok) return [];
+  // Fallback: Gemini
+  if (geminiKey) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+          }),
+        }
+      );
 
-    const json = await res.json();
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (res.ok) {
+        const json = await res.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const parsed = parseJsonArray(text, articles.length);
+        if (parsed) return parsed;
+      }
+    } catch { /* fall through */ }
+  }
 
-    // Extract JSON array from response (handle markdown code blocks too)
+  return [];
+}
+
+function parseJsonArray(text: string, expectedLength: number): string[] | null {
+  try {
     const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     const match = cleaned.match(/\[[\s\S]*\]/);
     if (match) {
       const parsed = JSON.parse(match[0]);
       if (Array.isArray(parsed)) {
-        // Pad or truncate to match article count
         const result: string[] = [];
-        for (let i = 0; i < articles.length; i++) {
+        for (let i = 0; i < expectedLength; i++) {
           result.push(typeof parsed[i] === "string" ? parsed[i] : "");
         }
         return result;
       }
     }
-  } catch {
-    // Fall through
-  }
-
-  return [];
+  } catch { /* invalid json */ }
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -76,7 +113,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ articles: [], error: "Unexpected response" });
     }
 
-    const raw = data.slice(0, 20).map((a: any) => ({
+    const raw = data.slice(0, 15).map((a: any) => ({
       id: a.id,
       headline: a.headline,
       source: a.source,
