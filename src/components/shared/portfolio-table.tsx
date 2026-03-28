@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TrendingUp, TrendingDown, Minus, PieChart, Trash2, Bell, BellRing } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, PieChart, Trash2, Bell, BellRing, DollarSign, Activity, Lightbulb } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
 interface Holding {
@@ -337,6 +337,54 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
 
+  // Compute portfolio-level totals
+  const totalCost = rows.reduce((s, r) => s + r.totalCost, 0);
+  const totalPnL = totalValue - totalCost;
+  const totalPnLPct = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
+  const totalDayChange = rows.reduce((s, r) => s + (r.quote ? r.quote.change * r.totalQuantity : 0), 0);
+  const totalDayChangePct = totalValue > 0 ? (totalDayChange / (totalValue - totalDayChange)) * 100 : 0;
+
+  // Best & worst performer today
+  const sortedByDay = [...rows].filter((r) => r.quote).sort((a, b) => (b.quote?.changePercent ?? 0) - (a.quote?.changePercent ?? 0));
+  const bestToday = sortedByDay[0];
+  const worstToday = sortedByDay.length > 1 ? sortedByDay[sortedByDay.length - 1] : null;
+
+  // Simple portfolio suggestion
+  function getPortfolioSuggestion(): { text: string; type: "success" | "warning" | "info" | "danger" } {
+    const topHoldingPct = holdingsPieData.length > 0 ? holdingsPieData[0].pct : 0;
+    const sectorCount = Object.keys(sectorMap).length;
+    const losers = rows.filter((r) => r.pnlPercent < -10);
+    const bigWinners = rows.filter((r) => r.pnlPercent > 20);
+
+    if (topHoldingPct > 50) {
+      return { text: `${holdingsPieData[0].symbol} คิดเป็น ${topHoldingPct.toFixed(0)}% ของพอร์ต — ควรกระจายความเสี่ยงเพิ่ม`, type: "warning" };
+    }
+    if (losers.length >= 2) {
+      return { text: `มี ${losers.length} ตัวขาดทุนเกิน 10% — พิจารณา cut loss หรือ average down`, type: "danger" };
+    }
+    if (sectorCount <= 1) {
+      return { text: "พอร์ตกระจุกตัวอยู่ sector เดียว — เพิ่มความหลากหลายจะลดความเสี่ยง", type: "warning" };
+    }
+    if (bigWinners.length >= 2) {
+      return { text: `${bigWinners.map(w => w.symbol).join(", ")} กำไรดี — อาจพิจารณา take profit บางส่วน`, type: "success" };
+    }
+    if (totalPnLPct > 5) {
+      return { text: "พอร์ตมีกำไรดี — รักษาสมดุลและติดตามข่าวสารอย่างสม่ำเสมอ", type: "success" };
+    }
+    if (totalPnLPct < -5) {
+      return { text: "พอร์ตติดลบ — อย่าตื่นตกใจ ทบทวน thesis ของแต่ละตัวก่อนตัดสินใจ", type: "info" };
+    }
+    return { text: "พอร์ตค่อนข้างสมดุล — ติดตามปัจจัยพื้นฐานของหุ้นแต่ละตัวต่อไป", type: "info" };
+  }
+
+  const suggestion = getPortfolioSuggestion();
+  const suggestionColors = {
+    success: "bg-emerald-500/5 border-emerald-500/20 text-emerald-400",
+    warning: "bg-amber-500/5 border-amber-500/20 text-amber-400",
+    info: "bg-blue-500/5 border-blue-500/20 text-blue-400",
+    danger: "bg-red-500/5 border-red-500/20 text-red-400",
+  };
+
   // Get triggered alerts by symbol
   const triggeredBySymbol: Record<string, Alert[]> = {};
   alerts.forEach((a) => {
@@ -347,7 +395,102 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
+      {/* Portfolio Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Total Value */}
+        <div className="rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-container)] p-4 text-[var(--primary-foreground)]">
+          <div className="flex items-center gap-2 mb-1.5">
+            <DollarSign className="h-3.5 w-3.5 opacity-70" />
+            <span className="text-[10px] uppercase tracking-wider font-medium opacity-80">Portfolio Value</span>
+          </div>
+          <p className="font-[var(--font-headline)] text-lg md:text-xl font-bold">
+            {loading ? "..." : `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </p>
+          <p className="text-[10px] mt-0.5 opacity-60">
+            Cost: ${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
+
+        {/* Total P&L */}
+        <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Activity className="h-3.5 w-3.5 text-[var(--on-surface-variant)]" />
+            <span className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium">Total P&L</span>
+          </div>
+          {loading ? (
+            <div className="h-6 w-24 animate-pulse bg-[var(--surface-container-high)] rounded" />
+          ) : (
+            <>
+              <p className={`font-[var(--font-headline)] text-lg md:text-xl font-bold ${totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {totalPnL >= 0 ? "+" : ""}${totalPnL.toFixed(2)}
+              </p>
+              <p className={`text-[10px] mt-0.5 font-semibold ${totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {totalPnL >= 0 ? "+" : ""}{totalPnLPct.toFixed(2)}%
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Today's Change */}
+        <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4">
+          <div className="flex items-center gap-2 mb-1.5">
+            {totalDayChange >= 0
+              ? <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+              : <TrendingDown className="h-3.5 w-3.5 text-red-400" />}
+            <span className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium">Today</span>
+          </div>
+          {loading ? (
+            <div className="h-6 w-24 animate-pulse bg-[var(--surface-container-high)] rounded" />
+          ) : (
+            <>
+              <p className={`font-[var(--font-headline)] text-lg md:text-xl font-bold ${totalDayChange >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {totalDayChange >= 0 ? "+" : ""}${totalDayChange.toFixed(2)}
+              </p>
+              <p className={`text-[10px] mt-0.5 font-semibold ${totalDayChange >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {totalDayChangePct >= 0 ? "+" : ""}{totalDayChangePct.toFixed(2)}%
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Best / Worst Today */}
+        <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-4">
+          <span className="text-[10px] uppercase tracking-wider text-[var(--on-surface-variant)] font-medium">Top / Bottom Today</span>
+          {loading ? (
+            <div className="h-10 mt-2 animate-pulse bg-[var(--surface-container-high)] rounded" />
+          ) : bestToday ? (
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-400">{bestToday.symbol}</span>
+                <span className="text-[11px] font-bold text-emerald-400">
+                  {(bestToday.quote?.changePercent ?? 0) >= 0 ? "+" : ""}{bestToday.quote?.changePercent?.toFixed(2)}%
+                </span>
+              </div>
+              {worstToday && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-red-400">{worstToday.symbol}</span>
+                  <span className="text-[11px] font-bold text-red-400">
+                    {(worstToday.quote?.changePercent ?? 0) >= 0 ? "+" : ""}{worstToday.quote?.changePercent?.toFixed(2)}%
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--on-surface-variant)] mt-2">No data</p>
+          )}
+        </div>
+      </div>
+
+      {/* AI Suggestion */}
+      <div className={`rounded-xl border p-4 flex items-start gap-3 ${suggestionColors[suggestion.type]}`}>
+        <Lightbulb className="h-4 w-4 mt-0.5 shrink-0" />
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">Suggestion</span>
+          <p className="text-sm font-medium mt-0.5">{suggestion.text}</p>
+        </div>
+      </div>
+
       {/* Triggered Alerts Banner */}
       {Object.keys(triggeredBySymbol).length > 0 && (
         <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-4">
