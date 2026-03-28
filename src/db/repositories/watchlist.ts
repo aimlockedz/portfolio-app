@@ -29,6 +29,18 @@ export class WatchlistRepository {
     });
   }
 
+  async updateItem(userId: string, itemId: string, data: { convictionLevel?: number; notes?: string }) {
+    return this.db
+      .update(watchlistItems)
+      .set(data)
+      .where(
+        and(
+          eq(watchlistItems.id, itemId),
+          eq(watchlistItems.userId, userId)
+        )
+      );
+  }
+
   async removeItem(userId: string, itemId: string) {
     return this.db
       .delete(watchlistItems)
