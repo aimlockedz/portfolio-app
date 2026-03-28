@@ -178,9 +178,22 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
     setProfiles(profileMap);
   };
 
+  // Auto-fetch AI verdicts for all items
+  const fetchAllAiTakes = async () => {
+    for (const item of items) {
+      if (!aiTakes[item.symbol]) {
+        // Fire and forget — don't block
+        fetchAiTake(item.symbol);
+      }
+    }
+  };
+
   useEffect(() => {
     fetchQuotes();
     fetchProfiles();
+    // Fetch AI takes after a short delay to not overwhelm
+    const timer = setTimeout(fetchAllAiTakes, 1500);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -295,6 +308,23 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* AI Verdict Badge — always visible */}
+              <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                {aiTake?.loading ? (
+                  <div className="w-14 h-6 rounded-full bg-[var(--surface-container-high)] animate-pulse" />
+                ) : aiTake?.verdict ? (
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap ${
+                      VERDICT_COLORS[aiTake.verdict]?.bg || "bg-gray-500/10"
+                    } ${VERDICT_COLORS[aiTake.verdict]?.text || "text-gray-400"} ${
+                      VERDICT_COLORS[aiTake.verdict]?.border || "border-gray-500/20"
+                    }`}
+                  >
+                    {aiTake.verdict}
+                  </span>
+                ) : null}
               </div>
 
               {/* Sparkline — desktop only */}
