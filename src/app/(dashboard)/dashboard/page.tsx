@@ -22,9 +22,9 @@ export default async function DashboardPage() {
   const holdings = await portfolioRepo.getHoldings(user.id);
 
   return (
-    <div className="p-6 lg:p-10 space-y-6 max-w-7xl">
+    <div className="p-4 md:p-6 lg:p-10 space-y-4 md:space-y-6 max-w-7xl">
       <div>
-        <h1 className="font-[var(--font-headline)] text-3xl font-bold tracking-tight">
+        <h1 className="font-[var(--font-headline)] text-2xl md:text-3xl font-bold tracking-tight">
           Dashboard
         </h1>
         <p className="text-sm text-[var(--on-surface-variant)] mt-1">

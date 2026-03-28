@@ -404,8 +404,79 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
         </div>
       </div>
 
-      {/* Holdings Table */}
-      <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
+      {/* Holdings — Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {rows.map((r) => {
+          const hasTriggered = triggeredBySymbol[r.symbol]?.length > 0;
+          return (
+            <div
+              key={r.id}
+              onClick={() => router.push(`/stock/${r.symbol}`)}
+              className={`rounded-xl bg-[var(--card)] border border-[var(--border)] p-4 cursor-pointer active:scale-[0.98] transition-all ${
+                hasTriggered ? "border-emerald-500/20" : ""
+              }`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-[var(--primary-container)] flex items-center justify-center text-[10px] font-bold text-[var(--primary)]">
+                    {r.symbol.slice(0, 2)}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-sm">{r.symbol}</span>
+                      {hasTriggered && <BellRing className="h-3 w-3 text-emerald-400 animate-pulse" />}
+                    </div>
+                    <p className="text-[10px] text-[var(--on-surface-variant)]">{profiles[r.symbol]?.name || ""}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {r.quote && (
+                    <span className={`text-[10px] font-medium ${r.quote.change > 0 ? "text-emerald-400" : r.quote.change < 0 ? "text-red-400" : "text-[var(--on-surface-variant)]"}`}>
+                      {r.quote.change > 0 ? "+" : ""}{r.quote.changePercent?.toFixed(2)}%
+                    </span>
+                  )}
+                  <button
+                    onClick={(e) => deleteHolding(r.id, r.symbol, e)}
+                    disabled={deleting === r.id}
+                    className="p-1.5 rounded-full hover:bg-red-500/10 text-[var(--on-surface-variant)] hover:text-red-400"
+                    title="Remove"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-[var(--on-surface-variant)]">Qty</span>
+                  <span className="font-medium">{r.totalQuantity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--on-surface-variant)]">Avg Cost</span>
+                  <span className="font-medium">${r.avgCost.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--on-surface-variant)]">Price</span>
+                  <span className="font-semibold">{r.marketPrice ? `$${r.marketPrice.toFixed(2)}` : "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--on-surface-variant)]">Value</span>
+                  <span className="font-semibold">{r.marketValue ? `$${r.marketValue.toFixed(2)}` : "—"}</span>
+                </div>
+              </div>
+              {r.marketPrice > 0 && (
+                <div className="mt-2 pt-2 border-t border-[var(--border)]">
+                  <span className={`inline-flex text-[11px] font-bold px-2.5 py-1 rounded-full ${r.pnl >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                    {r.pnl >= 0 ? "+" : ""}${r.pnl.toFixed(2)} ({r.pnlPercent.toFixed(1)}%)
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Holdings Table — Desktop */}
+      <div className="hidden md:block rounded-xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>

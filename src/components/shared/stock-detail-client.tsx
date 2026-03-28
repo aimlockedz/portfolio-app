@@ -301,22 +301,22 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
   }));
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl space-y-6">
+    <div className="p-4 md:p-6 lg:p-10 max-w-7xl space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-3 md:gap-4">
         <Link
           href="/portfolio"
-          className="w-9 h-9 rounded-full bg-[var(--surface-container-low)] flex items-center justify-center hover:bg-[var(--surface-container-high)] transition-colors"
+          className="w-9 h-9 rounded-full bg-[var(--surface-container-low)] flex items-center justify-center hover:bg-[var(--surface-container-high)] transition-colors shrink-0 mt-1"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <div className="flex-1">
-          <h1 className="font-[var(--font-headline)] text-3xl font-bold">
+        <div className="flex-1 min-w-0">
+          <h1 className="font-[var(--font-headline)] text-2xl md:text-3xl font-bold">
             {symbol}
-            {companyName && (
-              <span className="ml-3 text-base font-medium text-[var(--on-surface-variant)]">{companyName}</span>
-            )}
           </h1>
+          {companyName && (
+            <p className="text-sm text-[var(--on-surface-variant)] mt-0.5 truncate">{companyName}</p>
+          )}
           {quote && (
             <div className="flex items-center gap-3 mt-1">
               <span className="font-[var(--font-headline)] text-2xl font-bold">

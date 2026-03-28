@@ -26,10 +26,10 @@ export default async function PortfolioPage() {
   const symbols = holdings.map((h) => h.symbol);
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl space-y-6">
+    <div className="p-4 md:p-6 lg:p-10 max-w-7xl space-y-4 md:space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="font-[var(--font-headline)] text-2xl font-bold tracking-tight">
+          <h1 className="font-[var(--font-headline)] text-xl md:text-2xl font-bold tracking-tight">
             My Portfolio
           </h1>
           <p className="text-sm text-[var(--on-surface-variant)] mt-0.5">

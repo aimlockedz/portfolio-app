@@ -18,10 +18,10 @@ export default async function ExposurePage() {
   if (!session) redirect("/login");
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl space-y-6">
+    <div className="p-4 md:p-6 lg:p-10 max-w-7xl space-y-4 md:space-y-6">
       <div>
-        <h1 className="font-[var(--font-headline)] text-3xl font-bold">
-          Ecosystem & Supply Chain Exposure
+        <h1 className="font-[var(--font-headline)] text-2xl md:text-3xl font-bold">
+          Exposure Analysis
         </h1>
         <p className="text-[var(--on-surface-variant)] mt-1">
           Analyze concentration risk, supply chain dependencies, and geographic revenue exposure
