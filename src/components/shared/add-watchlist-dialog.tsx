@@ -44,7 +44,8 @@ export function AddWatchlistDialog() {
           `${selectedSymbol} added to Watchlist!`,
           `Now tracking ${selectedSymbol} — check back for AI analysis.`
         );
-        router.refresh();
+        // Full reload to pick up server-side data
+        setTimeout(() => window.location.reload(), 800);
       } else {
         const json = await response.json().catch(() => null);
         if (response.status === 409) {
