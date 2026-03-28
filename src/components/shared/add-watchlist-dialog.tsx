@@ -4,34 +4,64 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { StockSymbolInput } from "./stock-symbol-input";
+import { useToast } from "@/components/ui/toast-provider";
 
 export function AddWatchlistDialog() {
   const [open, setOpen] = useState(false);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    const formData = new FormData(event.currentTarget);
-    const response = await fetch("/api/watchlist", { method: "POST", body: formData });
-    if (response.ok) {
-      setOpen(false);
-      setCurrentPrice(null);
-      setError("");
-      router.refresh();
-    } else {
-      const json = await response.json().catch(() => null);
-      setError(json?.error || "Failed to add");
+
+    // Validate symbol was selected from dropdown
+    if (!selectedSymbol) {
+      setError("Please select a stock from the search dropdown");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const formData = new FormData(event.currentTarget);
+      // Ensure the correct symbol is set
+      formData.set("symbol", selectedSymbol);
+
+      const response = await fetch("/api/watchlist", { method: "POST", body: formData });
+      if (response.ok) {
+        setOpen(false);
+        setCurrentPrice(null);
+        setSelectedSymbol("");
+        setError("");
+        toast.success(
+          `${selectedSymbol} added to Watchlist!`,
+          `Now tracking ${selectedSymbol} — check back for AI analysis.`
+        );
+        router.refresh();
+      } else {
+        const json = await response.json().catch(() => null);
+        if (response.status === 409) {
+          setError(`${selectedSymbol} is already in your watchlist`);
+        } else {
+          setError(json?.error || "Failed to add");
+        }
+      }
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setCurrentPrice(null); setError(""); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setCurrentPrice(null); setSelectedSymbol(""); setError(""); } }}>
       <DialogTrigger asChild>
         <Button variant="outline" className="rounded-full border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary-container)] px-5">
           <Plus className="mr-2 h-4 w-4" /> Add to Watchlist
@@ -56,8 +86,17 @@ export function AddWatchlistDialog() {
               <StockSymbolInput
                 name="symbol"
                 placeholder="Search TSLA, AAPL..."
-                onSymbolSelect={(_, price) => { if (price) setCurrentPrice(price); }}
+                onSymbolSelect={(sym, price) => {
+                  setSelectedSymbol(sym);
+                  setError("");
+                  if (price) setCurrentPrice(price);
+                }}
               />
+              {selectedSymbol && (
+                <p className="text-xs text-emerald-400 font-medium">
+                  Selected: {selectedSymbol}
+                </p>
+              )}
             </div>
 
             {currentPrice !== null && (
@@ -108,9 +147,17 @@ export function AddWatchlistDialog() {
           <DialogFooter className="px-6 pb-6 pt-2">
             <Button
               type="submit"
-              className="w-full rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 h-11 font-bold"
+              disabled={submitting || !selectedSymbol}
+              className="w-full rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 h-11 font-bold disabled:opacity-50"
             >
-              Add to Watchlist
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add to Watchlist"
+              )}
             </Button>
           </DialogFooter>
         </form>
