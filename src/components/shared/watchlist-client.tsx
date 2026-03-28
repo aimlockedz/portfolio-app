@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Trash2, RefreshCw, Star, Sparkles, ShoppingCart,
   TrendingUp, TrendingDown, ChevronDown, ChevronUp,
-  MessageSquare, ExternalLink,
+  MessageSquare, ExternalLink, BarChart3, Zap, Brain, Users, Activity,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
@@ -34,6 +34,38 @@ interface ProfileData {
   industry: string;
 }
 
+interface ScoreData {
+  score: number;
+  detail: string;
+}
+
+interface AiTakeData {
+  fundamental?: ScoreData;
+  growth?: ScoreData;
+  sentiment?: ScoreData;
+  technical?: ScoreData;
+  overall?: string;
+  verdict?: string;
+  rawData?: {
+    analystStrongBuy?: number;
+    analystBuy?: number;
+    analystHold?: number;
+    analystSell?: number;
+    analystStrongSell?: number;
+    targetMedian?: number | string;
+    targetMean?: number | string;
+    targetHigh?: number | string;
+    targetLow?: number | string;
+    peRatio?: number | string;
+    dividendYield?: number;
+    high52w?: number;
+    low52w?: number;
+    beta?: number | string;
+  };
+  loading?: boolean;
+  error?: boolean;
+}
+
 function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
   if (data.length < 2) return <div className="w-20 h-8" />;
   const min = Math.min(...data);
@@ -59,25 +91,15 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
   );
 }
 
-function ConvictionStars({
-  level,
-  onChange,
-}: {
-  level: number;
-  onChange: (level: number) => void;
-}) {
+function ConvictionStars({ level, onChange }: { level: number; onChange: (level: number) => void }) {
   const [hover, setHover] = useState(0);
-
   return (
     <div className="flex gap-0.5" onMouseLeave={() => setHover(0)}>
       {[1, 2, 3, 4, 5].map((i) => (
         <button
           key={i}
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onChange(i);
-          }}
+          onClick={(e) => { e.stopPropagation(); onChange(i); }}
           onMouseEnter={() => setHover(i)}
           className="p-0 transition-transform hover:scale-110"
         >
@@ -93,6 +115,32 @@ function ConvictionStars({
   );
 }
 
+function ScoreBar({ score, label, icon: Icon, color }: { score: number; label: string; icon: React.ElementType; color: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="h-3.5 w-3.5 shrink-0" style={{ color }} />
+      <span className="text-[10px] font-semibold w-20 shrink-0">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-[var(--surface-container-high)] overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${score * 10}%`, backgroundColor: color }}
+        />
+      </div>
+      <span className="text-xs font-bold w-6 text-right" style={{ color }}>
+        {score}
+      </span>
+    </div>
+  );
+}
+
+const VERDICT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  "Strong Buy": { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30" },
+  "Buy": { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
+  "Hold": { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" },
+  "Sell": { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" },
+  "Strong Sell": { bg: "bg-red-500/15", text: "text-red-400", border: "border-red-500/30" },
+};
+
 export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[] }) {
   const [items, setItems] = useState(initialItems);
   const [quotes, setQuotes] = useState<QuoteData[]>([]);
@@ -100,28 +148,22 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [aiTakes, setAiTakes] = useState<Record<string, { text: string; loading: boolean }>>({});
+  const [aiTakes, setAiTakes] = useState<Record<string, AiTakeData>>({});
   const router = useRouter();
   const { confirm, success: toastSuccess } = useToast();
 
   const fetchQuotes = async () => {
-    if (items.length === 0) {
-      setLoading(false);
-      return;
-    }
+    if (items.length === 0) { setLoading(false); return; }
     setLoading(true);
     try {
       const symbols = items.map((i) => i.symbol).join(",");
       const res = await fetch(`/api/watchlist/quotes?symbols=${symbols}`);
       const json = await res.json();
       setQuotes(json.quotes || []);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     setLoading(false);
   };
 
-  // Fetch profiles for all symbols
   const fetchProfiles = async () => {
     const profileMap: Record<string, ProfileData> = {};
     await Promise.all(
@@ -129,12 +171,8 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
         try {
           const res = await fetch(`/api/stock/profile?symbol=${item.symbol}`);
           const data = await res.json();
-          if (data.name) {
-            profileMap[item.symbol] = { name: data.name, industry: data.industry || "—" };
-          }
-        } catch {
-          /* skip */
-        }
+          if (data.name) profileMap[item.symbol] = { name: data.name, industry: data.industry || "—" };
+        } catch { /* skip */ }
       })
     );
     setProfiles(profileMap);
@@ -161,9 +199,7 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
       await fetch(`/api/watchlist/${id}`, { method: "DELETE" });
       setItems((prev) => prev.filter((i) => i.id !== id));
       toastSuccess("Removed", `${symbol} removed from watchlist.`);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     setDeleting(null);
   };
 
@@ -175,52 +211,25 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ convictionLevel: level }),
       });
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
 
   const fetchAiTake = async (symbol: string) => {
-    if (aiTakes[symbol]?.text) return; // already fetched
-    setAiTakes((prev) => ({ ...prev, [symbol]: { text: "", loading: true } }));
-
-    const q = quotes.find((qq) => qq.symbol === symbol);
-    const profile = profiles[symbol];
+    if (aiTakes[symbol] && !aiTakes[symbol].error) return;
+    setAiTakes((prev) => ({ ...prev, [symbol]: { loading: true } }));
 
     try {
-      const groqRes = await fetch("/api/portfolio/suggestion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          holdings: [
-            {
-              symbol,
-              name: profile?.name || symbol,
-              sector: profile?.industry || "Unknown",
-              qty: 0,
-              avgCost: 0,
-              currentPrice: q?.price || 0,
-              pnl: 0,
-              pnlPercent: 0,
-              dayChangePercent: q?.changePercent || 0,
-              weight: 100,
-            },
-          ],
-          totalValue: q?.price || 0,
-          totalCost: 0,
-          totalPnL: 0,
-          totalPnLPct: 0,
-          totalDayChange: q?.change || 0,
-          totalDayChangePct: q?.changePercent || 0,
-        }),
-      });
-      const data = await groqRes.json();
+      const res = await fetch(`/api/watchlist/ai-take?symbol=${symbol}`);
+      const data = await res.json();
       setAiTakes((prev) => ({
         ...prev,
-        [symbol]: { text: data.suggestion || "ไม่สามารถวิเคราะห์ได้", loading: false },
+        [symbol]: { ...data, loading: false },
       }));
     } catch {
-      setAiTakes((prev) => ({ ...prev, [symbol]: { text: "เกิดข้อผิดพลาด", loading: false } }));
+      setAiTakes((prev) => ({
+        ...prev,
+        [symbol]: { overall: "เกิดข้อผิดพลาด", loading: false, error: true },
+      }));
     }
   };
 
@@ -268,7 +277,6 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
               className="flex items-center gap-3 p-4 cursor-pointer hover:bg-[var(--surface-container-low)] transition-colors"
               onClick={() => router.push(`/stock/${item.symbol}`)}
             >
-              {/* Symbol + Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="w-9 h-9 rounded-full bg-[var(--primary-container)] flex items-center justify-center text-[10px] font-bold text-[var(--primary)] shrink-0">
@@ -311,13 +319,8 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
                       ) : (
                         <TrendingDown className="h-2.5 w-2.5 text-red-400" />
                       )}
-                      <span
-                        className={`text-[11px] font-bold ${
-                          positive ? "text-emerald-400" : "text-red-400"
-                        }`}
-                      >
-                        {positive ? "+" : ""}
-                        {q.changePercent.toFixed(2)}%
+                      <span className={`text-[11px] font-bold ${positive ? "text-emerald-400" : "text-red-400"}`}>
+                        {positive ? "+" : ""}{q.changePercent.toFixed(2)}%
                       </span>
                     </div>
                   </>
@@ -331,10 +334,10 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
                 <button
                   onClick={() => {
                     setExpandedId(isExpanded ? null : item.id);
-                    if (!isExpanded && !aiTake) fetchAiTake(item.symbol);
+                    if (!isExpanded) fetchAiTake(item.symbol);
                   }}
                   className="p-1.5 rounded-lg hover:bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] transition-colors"
-                  title="Details"
+                  title="AI Analysis"
                 >
                   {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
@@ -349,9 +352,9 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
               </div>
             </div>
 
-            {/* Expanded Section */}
+            {/* Expanded Section — Stock Analysis */}
             {isExpanded && (
-              <div className="border-t border-[var(--border)] p-4 space-y-3 bg-[var(--surface-container-low)]/50">
+              <div className="border-t border-[var(--border)] p-4 space-y-4 bg-[var(--surface-container-low)]/50">
                 {/* Price details row */}
                 {q && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -403,19 +406,122 @@ export function WatchlistClient({ items: initialItems }: { items: WatchlistItem[
                   </div>
                 )}
 
-                {/* AI Quick Take */}
-                <div className="rounded-lg bg-blue-500/5 border border-blue-500/15 p-3">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-blue-400" />
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">AI Quick Take</span>
-                  </div>
-                  {aiTake?.loading ? (
-                    <div className="space-y-1.5">
-                      <div className="h-3 w-3/4 rounded bg-blue-400/10 animate-pulse" />
-                      <div className="h-3 w-1/2 rounded bg-blue-400/10 animate-pulse" />
+                {/* AI Stock Analysis */}
+                <div className="rounded-xl bg-blue-500/5 border border-blue-500/15 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-blue-400" />
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
+                        AI Stock Analysis
+                      </span>
                     </div>
-                  ) : aiTake?.text ? (
-                    <p className="text-xs text-blue-300 leading-relaxed">{aiTake.text}</p>
+                    {aiTake?.verdict && !aiTake.loading && (
+                      <span
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                          VERDICT_COLORS[aiTake.verdict]?.bg || "bg-gray-500/10"
+                        } ${VERDICT_COLORS[aiTake.verdict]?.text || "text-gray-400"} ${
+                          VERDICT_COLORS[aiTake.verdict]?.border || "border-gray-500/20"
+                        }`}
+                      >
+                        {aiTake.verdict}
+                      </span>
+                    )}
+                  </div>
+
+                  {aiTake?.loading ? (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <div className="w-3.5 h-3.5 rounded bg-blue-400/10 animate-pulse" />
+                            <div className="w-20 h-3 rounded bg-blue-400/10 animate-pulse" />
+                            <div className="flex-1 h-2 rounded bg-blue-400/10 animate-pulse" />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="h-4 w-3/4 rounded bg-blue-400/10 animate-pulse mt-3" />
+                      <div className="h-4 w-1/2 rounded bg-blue-400/10 animate-pulse" />
+                    </div>
+                  ) : aiTake ? (
+                    <div className="space-y-3">
+                      {/* Score Bars */}
+                      {aiTake.fundamental && (
+                        <div className="space-y-2">
+                          <ScoreBar score={aiTake.fundamental.score} label="Fundamental" icon={BarChart3} color="#3b82f6" />
+                          <ScoreBar score={aiTake.growth?.score || 0} label="Growth" icon={Zap} color="#10b981" />
+                          <ScoreBar score={aiTake.sentiment?.score || 0} label="Sentiment" icon={Users} color="#f59e0b" />
+                          <ScoreBar score={aiTake.technical?.score || 0} label="Technical" icon={Activity} color="#8b5cf6" />
+                        </div>
+                      )}
+
+                      {/* Score Details (collapsible) */}
+                      {aiTake.fundamental && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                          {[
+                            { key: "fundamental", icon: BarChart3, color: "#3b82f6", label: "Fundamental" },
+                            { key: "growth", icon: Zap, color: "#10b981", label: "Growth" },
+                            { key: "sentiment", icon: Users, color: "#f59e0b", label: "Sentiment" },
+                            { key: "technical", icon: Activity, color: "#8b5cf6", label: "Technical" },
+                          ].map(({ key, icon: SIcon, color, label }) => {
+                            const s = aiTake[key as keyof AiTakeData] as ScoreData | undefined;
+                            if (!s?.detail) return null;
+                            return (
+                              <div key={key} className="rounded-lg bg-[var(--surface-container-high)]/50 p-2.5">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <SIcon className="h-3 w-3" style={{ color }} />
+                                  <span className="text-[10px] font-bold" style={{ color }}>{label}</span>
+                                </div>
+                                <p className="text-[11px] text-[var(--on-surface-variant)] leading-relaxed">
+                                  {s.detail}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Key Metrics from raw data */}
+                      {aiTake.rawData && (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {aiTake.rawData.peRatio && aiTake.rawData.peRatio !== "N/A" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-container-high)] font-mono">
+                              P/E {typeof aiTake.rawData.peRatio === "number" ? aiTake.rawData.peRatio.toFixed(1) : aiTake.rawData.peRatio}
+                            </span>
+                          )}
+                          {aiTake.rawData.targetMedian && aiTake.rawData.targetMedian !== "N/A" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-container-high)] font-mono">
+                              Target ${typeof aiTake.rawData.targetMedian === "number" ? aiTake.rawData.targetMedian.toFixed(0) : aiTake.rawData.targetMedian}
+                            </span>
+                          )}
+                          {aiTake.rawData.dividendYield !== undefined && aiTake.rawData.dividendYield > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-container-high)] font-mono">
+                              Yield {aiTake.rawData.dividendYield.toFixed(2)}%
+                            </span>
+                          )}
+                          {aiTake.rawData.beta && aiTake.rawData.beta !== "N/A" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-container-high)] font-mono">
+                              Beta {typeof aiTake.rawData.beta === "number" ? aiTake.rawData.beta.toFixed(2) : aiTake.rawData.beta}
+                            </span>
+                          )}
+                          {/* Analyst consensus mini */}
+                          {(aiTake.rawData.analystBuy || 0) + (aiTake.rawData.analystHold || 0) + (aiTake.rawData.analystSell || 0) > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono">
+                              {(aiTake.rawData.analystStrongBuy || 0) + (aiTake.rawData.analystBuy || 0)}B / {aiTake.rawData.analystHold || 0}H / {(aiTake.rawData.analystSell || 0) + (aiTake.rawData.analystStrongSell || 0)}S
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Overall Summary */}
+                      {aiTake.overall && (
+                        <div className="mt-2 pt-2 border-t border-blue-500/10">
+                          <div className="flex items-start gap-2">
+                            <Brain className="h-3.5 w-3.5 text-blue-400 mt-0.5 shrink-0" />
+                            <p className="text-xs text-blue-200 leading-relaxed">{aiTake.overall}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-xs text-[var(--on-surface-variant)]">กำลังโหลด...</p>
                   )}
