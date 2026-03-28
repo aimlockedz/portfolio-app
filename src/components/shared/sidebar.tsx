@@ -12,7 +12,6 @@ import {
   User,
   Settings,
   LogOut,
-  ArrowRightLeft,
   Network,
   Bell,
   CalendarDays,
@@ -23,7 +22,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
   { href: "/transactions", label: "Transactions", icon: History },
-  { href: "/rebalance", label: "Rebalance", icon: ArrowRightLeft },
+
   { href: "/watchlist", label: "Watchlist", icon: TrendingUp },
   { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/news", label: "News", icon: Newspaper },

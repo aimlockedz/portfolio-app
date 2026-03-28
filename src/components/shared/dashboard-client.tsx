@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 import { MarketOverview } from "./market-overview";
 import { PortfolioHistoryChart } from "./portfolio-history-chart";
+import { CorrelationMatrix } from "./correlation-matrix";
+import { DividendCalendar } from "./dividend-calendar";
+import { AllocationTarget } from "./allocation-target";
 
 interface Holding {
   id: string;
@@ -394,6 +397,22 @@ export function DashboardClient({ holdings }: { holdings: Holding[] }) {
           )}
         </div>
       </div>
+
+      {/* Allocation Target */}
+      {holdings.length > 0 && (
+        <AllocationTarget holdings={holdings} quotes={quotes} profiles={profiles} />
+      )}
+
+      {/* Correlation Matrix + Dividend Calendar */}
+      {holdings.length >= 2 && (
+        <div className="grid lg:grid-cols-2 gap-4">
+          <CorrelationMatrix symbols={holdings.map((h) => h.symbol)} />
+          <DividendCalendar symbols={holdings.map((h) => h.symbol)} />
+        </div>
+      )}
+      {holdings.length === 1 && (
+        <DividendCalendar symbols={holdings.map((h) => h.symbol)} />
+      )}
     </div>
   );
 }

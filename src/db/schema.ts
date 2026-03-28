@@ -131,6 +131,30 @@ export const portfolioSnapshots = sqliteTable("portfolio_snapshots", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+// --- Portfolio Targets (money goals) ---
+
+export const portfolioTargets = sqliteTable("portfolio_targets", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  targetValue: integer("target_value").notNull(), // in cents
+  label: text("label"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+// --- Allocation Targets (sector % goals) ---
+
+export const allocationTargets = sqliteTable("allocation_targets", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  sector: text("sector").notNull(),
+  targetPercent: integer("target_percent").notNull(), // 0-100
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
 export const stockScores = sqliteTable("stock_scores", {
   id: text("id").primaryKey(),
   symbol: text("symbol").notNull().unique(),

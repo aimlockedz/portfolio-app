@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { LineChart, TrendingUp, TrendingDown } from "lucide-react";
+import { LineChart, TrendingUp, TrendingDown, Target, Plus, X } from "lucide-react";
 
 interface DataPoint {
   date: string;
   value: number;
   cost: number;
+}
+
+interface PortfolioTarget {
+  id: string;
+  targetValue: number;
+  label: string | null;
 }
 
 const PERIODS = [
@@ -27,6 +33,45 @@ export function PortfolioHistoryChart() {
   const [period, setPeriod] = useState("30d");
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Portfolio targets
+  const [targets, setTargets] = useState<PortfolioTarget[]>([]);
+  const [showTargetForm, setShowTargetForm] = useState(false);
+  const [newTargetValue, setNewTargetValue] = useState("");
+  const [newTargetLabel, setNewTargetLabel] = useState("");
+
+  useEffect(() => {
+    fetch("/api/portfolio/targets")
+      .then((r) => r.json())
+      .then((d) => setTargets(d.targets || []))
+      .catch(() => {});
+  }, []);
+
+  async function addTarget() {
+    const val = parseFloat(newTargetValue);
+    if (!val || val <= 0) return;
+    const res = await fetch("/api/portfolio/targets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetValue: val, label: newTargetLabel || null }),
+    });
+    if (res.ok) {
+      const { id } = await res.json();
+      setTargets((prev) => [...prev, { id, targetValue: val, label: newTargetLabel || null }]);
+      setNewTargetValue("");
+      setNewTargetLabel("");
+      setShowTargetForm(false);
+    }
+  }
+
+  async function removeTarget(id: string) {
+    await fetch("/api/portfolio/targets", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setTargets((prev) => prev.filter((t) => t.id !== id));
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -94,7 +139,8 @@ export function PortfolioHistoryChart() {
 
   const values = data.map((d) => d.value);
   const costs = data.map((d) => d.cost);
-  const allVals = [...values, ...costs];
+  const targetVals = targets.map((t) => t.targetValue);
+  const allVals = [...values, ...costs, ...targetVals];
   const minVal = Math.min(...allVals) * 0.98;
   const maxVal = Math.max(...allVals) * 1.02;
   const range = maxVal - minVal || 1;
@@ -238,6 +284,23 @@ export function PortfolioHistoryChart() {
         {/* Value line */}
         <path d={valuePath} fill="none" stroke={isPositive ? "#34d399" : "#f87171"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
+        {/* Target lines */}
+        {targets.map((t) => {
+          const y = toY(t.targetValue);
+          if (y < PAD_T || y > PAD_T + chartH) return null;
+          return (
+            <g key={t.id}>
+              <line
+                x1={PAD_L} y1={y} x2={W - PAD_R} y2={y}
+                stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="6 3"
+              />
+              <text x={W - PAD_R - 4} y={y - 5} textAnchor="end" fontSize="9" fill="#f59e0b" fontWeight="bold">
+                🎯 {t.label || "Target"} ${t.targetValue >= 1000 ? `${(t.targetValue / 1000).toFixed(1)}k` : t.targetValue.toFixed(0)}
+              </text>
+            </g>
+          );
+        })}
+
         {/* Hover crosshair */}
         {hoverIdx !== null && (
           <>
@@ -274,17 +337,92 @@ export function PortfolioHistoryChart() {
           })}
       </svg>
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 mt-3 text-[10px] text-[var(--on-surface-variant)]">
-        <div className="flex items-center gap-1.5">
-          <div className={`w-3 h-0.5 rounded-full ${isPositive ? "bg-emerald-400" : "bg-red-400"}`} />
-          <span>Portfolio Value</span>
+      {/* Legend + Target Info */}
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex items-center gap-4 text-[10px] text-[var(--on-surface-variant)]">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-3 h-0.5 rounded-full ${isPositive ? "bg-emerald-400" : "bg-red-400"}`} />
+            <span>Portfolio Value</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-0.5 rounded-full bg-[var(--on-surface-variant)] opacity-40" style={{ borderBottom: "1px dashed" }} />
+            <span>Total Cost</span>
+          </div>
+          {targets.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 rounded-full bg-amber-400" style={{ borderBottom: "2px dashed" }} />
+              <span>Target</span>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-0.5 rounded-full bg-[var(--on-surface-variant)] opacity-40" style={{ borderBottom: "1px dashed" }} />
-          <span>Total Cost</span>
-        </div>
+        <button
+          onClick={() => setShowTargetForm(!showTargetForm)}
+          className="flex items-center gap-1 text-[10px] font-bold text-[var(--primary)] hover:opacity-80"
+        >
+          <Target className="h-3 w-3" />
+          Set Target
+        </button>
       </div>
+
+      {/* Target badges */}
+      {targets.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {targets.map((t) => {
+            const current = last.value;
+            const pct = current > 0 ? ((t.targetValue - current) / current * 100) : 0;
+            const reached = current >= t.targetValue;
+            return (
+              <div
+                key={t.id}
+                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-bold ${
+                  reached ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
+                }`}
+              >
+                <Target className="h-3 w-3" />
+                <span>{t.label || "Target"}: ${t.targetValue.toLocaleString()}</span>
+                <span className="opacity-70">
+                  {reached ? "Reached!" : `${pct > 0 ? "+" : ""}${pct.toFixed(1)}% to go`}
+                </span>
+                <button onClick={() => removeTarget(t.id)} className="hover:opacity-60">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Target form */}
+      {showTargetForm && (
+        <div className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-[var(--surface-container-low)]">
+          <input
+            type="number"
+            placeholder="Target value ($)"
+            value={newTargetValue}
+            onChange={(e) => setNewTargetValue(e.target.value)}
+            className="flex-1 px-3 py-1.5 rounded-lg bg-[var(--surface-container-high)] text-sm outline-none"
+          />
+          <input
+            type="text"
+            placeholder="Label (optional)"
+            value={newTargetLabel}
+            onChange={(e) => setNewTargetLabel(e.target.value)}
+            className="w-32 px-3 py-1.5 rounded-lg bg-[var(--surface-container-high)] text-sm outline-none"
+          />
+          <button
+            onClick={addTarget}
+            className="px-3 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-bold"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setShowTargetForm(false)}
+            className="px-2 py-1.5 text-[var(--on-surface-variant)]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
