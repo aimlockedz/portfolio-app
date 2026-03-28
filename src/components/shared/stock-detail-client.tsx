@@ -186,6 +186,7 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
     ema9: true, ema21: true, ema50: false, ema200: false,
   });
   const [activeTab, setActiveTab] = useState<"chart" | "fundamentals">("chart");
+  const [companyName, setCompanyName] = useState("");
 
   // Price alerts
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
@@ -199,13 +200,16 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
       setLoading(true);
       setError("");
       try {
-        const [candleRes, quoteRes, recRes] = await Promise.all([
+        const [candleRes, quoteRes, recRes, profileRes] = await Promise.all([
           fetch(`/api/stock/candles?symbol=${symbol}&range=${range}&interval=${interval}`),
           fetch(`/api/stock/quote?symbol=${symbol}`),
           fetch(`/api/stock/recommendation?symbol=${symbol}`),
+          fetch(`/api/stock/profile?symbol=${symbol}`),
         ]);
         const candleData = await candleRes.json();
         const quoteData = await quoteRes.json();
+        const profileData = await profileRes.json().catch(() => ({}));
+        if (profileData?.name) setCompanyName(profileData.name);
 
         if (candleData.error && candleData.candles?.length === 0) {
           setError(candleData.error);
@@ -307,7 +311,12 @@ export function StockDetailClient({ symbol }: { symbol: string }) {
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="flex-1">
-          <h1 className="font-[var(--font-headline)] text-3xl font-bold">{symbol}</h1>
+          <h1 className="font-[var(--font-headline)] text-3xl font-bold">
+            {symbol}
+            {companyName && (
+              <span className="ml-3 text-base font-medium text-[var(--on-surface-variant)]">{companyName}</span>
+            )}
+          </h1>
           {quote && (
             <div className="flex items-center gap-3 mt-1">
               <span className="font-[var(--font-headline)] text-2xl font-bold">
