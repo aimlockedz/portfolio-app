@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TrendingUp, TrendingDown, Minus, PieChart, Trash2, Bell, BellRing, DollarSign, Activity, Lightbulb } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, PieChart, Trash2, Bell, BellRing, DollarSign, Activity, Lightbulb, Sparkles, RefreshCw, CheckCircle } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
 interface Holding {
@@ -186,6 +186,11 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertChecks, setAlertChecks] = useState<Record<string, { hit: boolean; currentPrice: number }>>({});
 
+  // AI Suggestion
+  const [aiSuggestion, setAiSuggestion] = useState<{ suggestion: string; type: string; actions: string[] } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiRequested, setAiRequested] = useState(false);
+
   useEffect(() => {
     async function fetchData() {
       if (localHoldings.length === 0) { setLoading(false); return; }
@@ -260,6 +265,76 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
       })
       .catch(() => {});
   }, [localHoldings]);
+
+  // Fetch AI suggestion
+  async function fetchAiSuggestion() {
+    if (loading || Object.keys(quotes).length === 0) return;
+    setAiLoading(true);
+
+    const holdingsData = localHoldings.map((h) => {
+      const quote = quotes[h.symbol];
+      const avgCost = h.averageCost / 100;
+      const marketPrice = quote?.currentPrice ?? 0;
+      const marketVal = marketPrice ? h.totalQuantity * marketPrice : 0;
+      const cost = (h.totalQuantity * h.averageCost) / 100;
+      const pnl = marketVal - cost;
+      const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
+      const tv = localHoldings.reduce((s, hh) => {
+        const q = quotes[hh.symbol];
+        return s + (q ? hh.totalQuantity * q.currentPrice : 0);
+      }, 0);
+
+      return {
+        symbol: h.symbol,
+        name: profiles[h.symbol]?.name || h.symbol,
+        sector: profiles[h.symbol]?.industry || "Unknown",
+        qty: h.totalQuantity,
+        avgCost,
+        currentPrice: marketPrice,
+        pnl,
+        pnlPercent: pnlPct,
+        dayChangePercent: quote?.changePercent ?? 0,
+        weight: tv > 0 ? (marketVal / tv) * 100 : 0,
+      };
+    });
+
+    const tv = holdingsData.reduce((s, h) => s + h.qty * h.currentPrice, 0);
+    const tc = holdingsData.reduce((s, h) => s + h.qty * h.avgCost, 0);
+    const tpnl = tv - tc;
+    const tpnlPct = tc > 0 ? (tpnl / tc) * 100 : 0;
+    const tdc = holdingsData.reduce((s, h) => s + (h.dayChangePercent / 100) * h.qty * h.currentPrice, 0);
+    const tdcPct = tv > 0 ? (tdc / (tv - tdc)) * 100 : 0;
+
+    try {
+      const res = await fetch("/api/portfolio/suggestion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          holdings: holdingsData,
+          totalValue: tv,
+          totalCost: tc,
+          totalPnL: tpnl,
+          totalPnLPct: tpnlPct,
+          totalDayChange: tdc,
+          totalDayChangePct: tdcPct,
+        }),
+      });
+      const data = await res.json();
+      setAiSuggestion(data);
+      setAiRequested(true);
+    } catch {
+      setAiSuggestion({ suggestion: "ไม่สามารถวิเคราะห์ได้ในขณะนี้", type: "info", actions: [] });
+    }
+    setAiLoading(false);
+  }
+
+  // Auto-fetch AI suggestion when data is loaded
+  useEffect(() => {
+    if (!loading && Object.keys(quotes).length > 0 && !aiRequested && localHoldings.length > 0) {
+      fetchAiSuggestion();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, quotes]);
 
   async function deleteHolding(holdingId: string, symbol: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -349,36 +424,7 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
   const bestToday = sortedByDay[0];
   const worstToday = sortedByDay.length > 1 ? sortedByDay[sortedByDay.length - 1] : null;
 
-  // Simple portfolio suggestion
-  function getPortfolioSuggestion(): { text: string; type: "success" | "warning" | "info" | "danger" } {
-    const topHoldingPct = holdingsPieData.length > 0 ? holdingsPieData[0].pct : 0;
-    const sectorCount = Object.keys(sectorMap).length;
-    const losers = rows.filter((r) => r.pnlPercent < -10);
-    const bigWinners = rows.filter((r) => r.pnlPercent > 20);
-
-    if (topHoldingPct > 50) {
-      return { text: `${holdingsPieData[0].symbol} คิดเป็น ${topHoldingPct.toFixed(0)}% ของพอร์ต — ควรกระจายความเสี่ยงเพิ่ม`, type: "warning" };
-    }
-    if (losers.length >= 2) {
-      return { text: `มี ${losers.length} ตัวขาดทุนเกิน 10% — พิจารณา cut loss หรือ average down`, type: "danger" };
-    }
-    if (sectorCount <= 1) {
-      return { text: "พอร์ตกระจุกตัวอยู่ sector เดียว — เพิ่มความหลากหลายจะลดความเสี่ยง", type: "warning" };
-    }
-    if (bigWinners.length >= 2) {
-      return { text: `${bigWinners.map(w => w.symbol).join(", ")} กำไรดี — อาจพิจารณา take profit บางส่วน`, type: "success" };
-    }
-    if (totalPnLPct > 5) {
-      return { text: "พอร์ตมีกำไรดี — รักษาสมดุลและติดตามข่าวสารอย่างสม่ำเสมอ", type: "success" };
-    }
-    if (totalPnLPct < -5) {
-      return { text: "พอร์ตติดลบ — อย่าตื่นตกใจ ทบทวน thesis ของแต่ละตัวก่อนตัดสินใจ", type: "info" };
-    }
-    return { text: "พอร์ตค่อนข้างสมดุล — ติดตามปัจจัยพื้นฐานของหุ้นแต่ละตัวต่อไป", type: "info" };
-  }
-
-  const suggestion = getPortfolioSuggestion();
-  const suggestionColors = {
+  const suggestionColors: Record<string, string> = {
     success: "bg-emerald-500/5 border-emerald-500/20 text-emerald-400",
     warning: "bg-amber-500/5 border-amber-500/20 text-amber-400",
     info: "bg-blue-500/5 border-blue-500/20 text-blue-400",
@@ -483,11 +529,56 @@ export function PortfolioTable({ holdings }: { holdings: Holding[] }) {
       </div>
 
       {/* AI Suggestion */}
-      <div className={`rounded-xl border p-4 flex items-start gap-3 ${suggestionColors[suggestion.type]}`}>
-        <Lightbulb className="h-4 w-4 mt-0.5 shrink-0" />
-        <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">Suggestion</span>
-          <p className="text-sm font-medium mt-0.5">{suggestion.text}</p>
+      <div className={`rounded-xl border p-4 ${aiSuggestion ? suggestionColors[aiSuggestion.type] || suggestionColors.info : "bg-[var(--surface-container-low)] border-[var(--border)]"}`}>
+        <div className="flex items-start gap-3">
+          {aiLoading ? (
+            <>
+              <Sparkles className="h-4 w-4 mt-0.5 shrink-0 animate-pulse" />
+              <div className="flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">AI กำลังวิเคราะห์พอร์ต...</span>
+                <div className="mt-2 space-y-2">
+                  <div className="h-3 w-3/4 rounded-full bg-current opacity-10 animate-pulse" />
+                  <div className="h-3 w-1/2 rounded-full bg-current opacity-10 animate-pulse" />
+                </div>
+              </div>
+            </>
+          ) : aiSuggestion ? (
+            <>
+              <Sparkles className="h-4 w-4 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 flex items-center gap-1">
+                    <Sparkles className="h-2.5 w-2.5" /> AI Portfolio Analysis
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); fetchAiSuggestion(); }}
+                    className="text-[10px] opacity-50 hover:opacity-100 transition-opacity flex items-center gap-1"
+                    title="วิเคราะห์ใหม่"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </button>
+                </div>
+                <p className="text-sm font-medium leading-relaxed">{aiSuggestion.suggestion}</p>
+                {aiSuggestion.actions && aiSuggestion.actions.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {aiSuggestion.actions.map((action, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs opacity-80">
+                        <CheckCircle className="h-3 w-3 shrink-0" />
+                        <span>{action}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Lightbulb className="h-4 w-4 mt-0.5 shrink-0 text-[var(--on-surface-variant)]" />
+              <div>
+                <span className="text-[10px] text-[var(--on-surface-variant)]">AI Suggestion จะแสดงเมื่อโหลดข้อมูลเสร็จ</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
