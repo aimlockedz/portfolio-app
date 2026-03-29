@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 async function summarizeInThai(articles: { headline: string; summary: string }[]): Promise<string[]> {
-  const groqKey = process.env.GROQ_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
 
   if (articles.length === 0) return [];
 
@@ -21,7 +21,31 @@ async function summarizeInThai(articles: { headline: string; summary: string }[]
 
 ${articles.map((a, i) => `${i + 1}. ${a.headline}\n${a.summary}`).join("\n\n")}`;
 
-  // Try Groq (Llama 3.3 70B - free, fast)
+  // Primary: Gemini 2.0 Flash (free tier — 1500 req/day, 1M tokens/day)
+  if (geminiKey) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+          }),
+        }
+      );
+
+      if (res.ok) {
+        const json = await res.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const parsed = parseJsonArray(text, articles.length);
+        if (parsed) return parsed;
+      }
+    } catch { /* fall through */ }
+  }
+
+  // Fallback: Groq (only if Gemini fails)
   if (groqKey) {
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -44,30 +68,6 @@ ${articles.map((a, i) => `${i + 1}. ${a.headline}\n${a.summary}`).join("\n\n")}`
       if (res.ok) {
         const json = await res.json();
         const text = json.choices?.[0]?.message?.content || "";
-        const parsed = parseJsonArray(text, articles.length);
-        if (parsed) return parsed;
-      }
-    } catch { /* fall through */ }
-  }
-
-  // Fallback: Gemini
-  if (geminiKey) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-          }),
-        }
-      );
-
-      if (res.ok) {
-        const json = await res.json();
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const parsed = parseJsonArray(text, articles.length);
         if (parsed) return parsed;
       }

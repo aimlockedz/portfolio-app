@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Newspaper, ExternalLink, RefreshCw, Clock, Sparkles, Search, X } from "lucide-react";
+import { Newspaper, ExternalLink, RefreshCw, Clock, Sparkles, Search, X, Languages, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 
 interface Article {
   id: number;
@@ -62,6 +62,11 @@ export function NewsClient() {
   const [category, setCategory] = useState("all");
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  // Full article translation state
+  const [translatedArticles, setTranslatedArticles] = useState<Record<number, string>>({});
+  const [translatingIds, setTranslatingIds] = useState<Set<number>>(new Set());
+  const [showTranslation, setShowTranslation] = useState<Set<number>>(new Set());
 
   // Stock search
   const [stockSearch, setStockSearch] = useState("");
@@ -142,6 +147,45 @@ export function NewsClient() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  };
+
+  const translateArticle = async (article: Article) => {
+    // If already translated, toggle visibility
+    if (translatedArticles[article.id]) {
+      setShowTranslation((prev) => {
+        const next = new Set(prev);
+        if (next.has(article.id)) next.delete(article.id);
+        else next.add(article.id);
+        return next;
+      });
+      return;
+    }
+
+    // Fetch translation
+    setTranslatingIds((prev) => new Set(prev).add(article.id));
+    try {
+      const res = await fetch("/api/news/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: article.url,
+          headline: article.headline,
+          summary: article.summary,
+        }),
+      });
+      const data = await res.json();
+      if (data.translatedContent) {
+        setTranslatedArticles((prev) => ({ ...prev, [article.id]: data.translatedContent }));
+        setShowTranslation((prev) => new Set(prev).add(article.id));
+      }
+    } catch {
+      // silently fail
+    }
+    setTranslatingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(article.id);
       return next;
     });
   };
@@ -334,7 +378,20 @@ export function NewsClient() {
                     <p className="text-xs text-[var(--on-surface-variant)] line-clamp-2 mb-2">{article.summary}</p>
                   )}
 
-                  {/* Related tickers + read link */}
+                  {/* Translated full content */}
+                  {showTranslation.has(article.id) && translatedArticles[article.id] && (
+                    <div className="mb-2 p-3 rounded-lg bg-[var(--surface-container-high)] border border-[var(--primary)]/20">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Languages className="h-3.5 w-3.5 text-[var(--primary)]" />
+                        <span className="text-[10px] font-bold text-[var(--primary)]">แปลข่าวเต็ม (Gemini AI)</span>
+                      </div>
+                      <div className="text-xs leading-relaxed whitespace-pre-line">
+                        {translatedArticles[article.id]}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Related tickers + actions */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {article.related && article.related.split(",").slice(0, 4).map((ticker) => (
@@ -343,15 +400,31 @@ export function NewsClient() {
                         </span>
                       ))}
                     </div>
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-[10px] text-[var(--primary)] hover:underline shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      อ่านฉบับเต็ม <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Translate full article button */}
+                      <button
+                        onClick={(e) => { e.preventDefault(); translateArticle(article); }}
+                        disabled={translatingIds.has(article.id)}
+                        className="flex items-center gap-1 text-[10px] text-[var(--on-surface-variant)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
+                      >
+                        {translatingIds.has(article.id) ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" /> กำลังแปล...</>
+                        ) : showTranslation.has(article.id) ? (
+                          <><ChevronUp className="h-3 w-3" /> ซ่อนแปล</>
+                        ) : (
+                          <><Languages className="h-3 w-3" /> แปลข่าวเต็ม</>
+                        )}
+                      </button>
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[10px] text-[var(--primary)] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        อ่านฉบับเต็ม <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
