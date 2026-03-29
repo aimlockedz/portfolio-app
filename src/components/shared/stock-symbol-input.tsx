@@ -17,7 +17,7 @@ interface StockSymbolInputProps {
 
 export function StockSymbolInput({
   name,
-  placeholder = "Search AAPL, TSLA...",
+  placeholder = "Search AAPL, TSLA, Nvidia...",
   onSymbolSelect,
   required = true,
 }: StockSymbolInputProps) {
@@ -53,11 +53,10 @@ export function StockSymbolInput({
   }, []);
 
   function handleInputChange(value: string) {
-    const upper = value.toUpperCase();
-    setQuery(upper);
+    setQuery(value);
     setSelectedSymbol("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => searchStocks(upper), 300);
+    debounceRef.current = setTimeout(() => searchStocks(value), 300);
   }
 
   async function handleSelect(item: StockResult) {

@@ -41,7 +41,7 @@ export function AddJournalEntryDialog() {
 
   function handleSymbolSearch(value: string) {
     setSymbolQuery(value);
-    setSymbolValue(value.toUpperCase());
+    setSymbolValue(value);
     setSymbolName("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.length < 1) {

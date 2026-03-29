@@ -42,6 +42,57 @@ function timeAgo(unix: number): string {
   return new Date(unix * 1000).toLocaleDateString("th-TH");
 }
 
+// Well-known stock tickers & company name → ticker mapping
+const COMPANY_TICKERS: Record<string, string> = {
+  "apple": "AAPL", "microsoft": "MSFT", "google": "GOOGL", "alphabet": "GOOGL",
+  "amazon": "AMZN", "meta": "META", "facebook": "META", "nvidia": "NVDA",
+  "tesla": "TSLA", "netflix": "NFLX", "amd": "AMD", "intel": "INTC",
+  "disney": "DIS", "walmart": "WMT", "boeing": "BA", "coca-cola": "KO",
+  "jpmorgan": "JPM", "goldman sachs": "GS", "berkshire": "BRK.B",
+  "salesforce": "CRM", "adobe": "ADBE", "paypal": "PYPL", "uber": "UBER",
+  "airbnb": "ABNB", "spotify": "SPOT", "palantir": "PLTR", "snowflake": "SNOW",
+  "coinbase": "COIN", "robinhood": "HOOD", "broadcom": "AVGO", "qualcomm": "QCOM",
+  "micron": "MU", "arm": "ARM", "samsung": "SSNLF", "tsmc": "TSM",
+  "oracle": "ORCL", "ibm": "IBM", "cisco": "CSCO", "crowdstrike": "CRWD",
+};
+
+function extractTickers(headline: string, related: string): string[] {
+  const tickers = new Set<string>();
+
+  // From related field (comma-separated symbols)
+  if (related) {
+    related.split(",").forEach((s) => {
+      const t = s.trim().toUpperCase();
+      if (t && /^[A-Z]{1,5}(\.[A-Z])?$/.test(t)) tickers.add(t);
+    });
+  }
+
+  // Extract $TICKER patterns from headline
+  const dollarMatches = headline.match(/\$([A-Z]{1,5})/g);
+  if (dollarMatches) {
+    dollarMatches.forEach((m) => tickers.add(m.slice(1)));
+  }
+
+  // Match known company names in headline
+  const lowerHeadline = headline.toLowerCase();
+  for (const [name, symbol] of Object.entries(COMPANY_TICKERS)) {
+    if (lowerHeadline.includes(name)) tickers.add(symbol);
+  }
+
+  // Match standalone uppercase ticker patterns like "NVDA" "AAPL" (2-5 chars, not common words)
+  const COMMON_WORDS = new Set(["THE", "AND", "FOR", "ARE", "BUT", "NOT", "YOU", "ALL", "CAN", "HER", "WAS", "ONE", "OUR", "OUT", "HAS", "ITS", "NEW", "NOW", "OLD", "SEE", "WAY", "MAY", "SAY", "SHE", "TWO", "HOW", "CEO", "IPO", "GDP", "FED", "SEC", "ETF", "USD", "EUR", "WAR", "OIL", "GAS", "TOP", "BIG", "LOW", "CUT", "SET", "HIT", "KEY", "RUN", "WIN", "BET", "MET", "LED", "AID", "BAN", "TAX", "LAW", "PAY"]);
+  const wordMatches = headline.match(/\b([A-Z]{2,5})\b/g);
+  if (wordMatches) {
+    wordMatches.forEach((w) => {
+      if (!COMMON_WORDS.has(w) && /^[A-Z]{2,5}$/.test(w)) {
+        tickers.add(w);
+      }
+    });
+  }
+
+  return [...tickers].slice(0, 5);
+}
+
 function SuggestionBadge({ suggestion }: { suggestion: string }) {
   const style = SUGGESTION_STYLES[suggestion] || SUGGESTION_STYLES["Hold"];
   return (
@@ -348,8 +399,22 @@ export function NewsClient() {
                     {article.suggestion && <SuggestionBadge suggestion={article.suggestion} />}
                   </div>
 
-                  {/* Headline */}
-                  <h3 className="font-bold text-sm leading-snug mb-2 line-clamp-2">{article.headline}</h3>
+                  {/* Headline + ticker badges */}
+                  <h3 className="font-bold text-sm leading-snug mb-1.5 line-clamp-2">{article.headline}</h3>
+                  {/* Mentioned tickers from headline/related */}
+                  {(() => {
+                    const tickers = extractTickers(article.headline, article.related);
+                    if (tickers.length === 0) return null;
+                    return (
+                      <div className="flex items-center gap-1 mb-2 flex-wrap">
+                        {tickers.map((t) => (
+                          <span key={t} className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                            ${t}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   {/* Thai AI summary */}
                   {hasThai && (

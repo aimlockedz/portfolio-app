@@ -56,7 +56,7 @@ export function AlertsClient() {
 
   function handleSymbolSearch(value: string) {
     setSearchQuery(value);
-    setSymbol(value.toUpperCase());
+    setSymbol(value);
     setSymbolName("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.length < 1) {
