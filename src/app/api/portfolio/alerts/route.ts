@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
+import { alertSchema } from "@/lib/validations";
 import { priceAlerts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -24,21 +25,6 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getDb();
-
-  // Ensure table exists
-  try {
-    await (db as any).run(`CREATE TABLE IF NOT EXISTS price_alerts (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      symbol TEXT NOT NULL,
-      target_price INTEGER NOT NULL,
-      direction TEXT NOT NULL,
-      active INTEGER NOT NULL DEFAULT 1,
-      triggered INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL
-    )`);
-  } catch { /* table may already exist */ }
-
   const alerts = await db.select().from(priceAlerts).where(eq(priceAlerts.userId, user.id));
   return NextResponse.json({ alerts });
 }
@@ -49,32 +35,13 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { symbol, targetPrice, direction } = body;
-
-  if (!symbol || !targetPrice || !direction) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  const parsed = alertSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
   }
-
-  if (!["above", "below"].includes(direction)) {
-    return NextResponse.json({ error: "Direction must be 'above' or 'below'" }, { status: 400 });
-  }
+  const { symbol, targetPrice, direction } = parsed.data;
 
   const db = getDb();
-
-  // Ensure table exists
-  try {
-    await (db as any).run(`CREATE TABLE IF NOT EXISTS price_alerts (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      symbol TEXT NOT NULL,
-      target_price INTEGER NOT NULL,
-      direction TEXT NOT NULL,
-      active INTEGER NOT NULL DEFAULT 1,
-      triggered INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL
-    )`);
-  } catch { /* table may already exist */ }
-
   const id = randomUUID();
   await db.insert(priceAlerts).values({
     id,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthUser, unauthorizedResponse } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +108,9 @@ function extractSuggestion(text: string): { summary: string; suggestion: string 
 }
 
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return unauthorizedResponse();
+
   const category = request.nextUrl.searchParams.get("category") || "general";
   const symbol = request.nextUrl.searchParams.get("symbol") || "";
   const minId = request.nextUrl.searchParams.get("minId") || "";

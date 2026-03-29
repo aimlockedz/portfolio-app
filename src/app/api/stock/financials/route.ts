@@ -121,9 +121,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ symbol, quarterly, annual, ttm });
   } catch (err) {
+    console.error("Financials error:", err);
     return NextResponse.json({
       error: "Failed to fetch financials",
-      debug: String(err),
       periods: [],
     }, { status: 500 });
   }

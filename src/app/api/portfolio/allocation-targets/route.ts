@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
+import { allocationTargetSchema } from "@/lib/validations";
 import { allocationTargets } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateId } from "lucia";
@@ -41,11 +42,12 @@ export async function POST(request: NextRequest) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { targets } = await request.json();
-  // targets: { sector: string, targetPercent: number }[]
-  if (!Array.isArray(targets)) {
-    return NextResponse.json({ error: "Invalid targets" }, { status: 400 });
+  const body = await request.json();
+  const parsed = allocationTargetSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
   }
+  const { targets } = parsed.data;
 
   const db = getDb();
 

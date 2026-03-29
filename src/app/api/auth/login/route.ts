@@ -2,18 +2,21 @@ import bcrypt from "bcryptjs";
 import { getDb } from "@/db/db";
 import { users } from "@/db/schema";
 import { initializeLucia } from "@/lib/auth";
+import { loginSchema } from "@/lib/validations";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-
-  if (!email || !password) {
-    return Response.json({ error: "Please enter email and password" }, { status: 400 });
+  const parsed = loginSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
   }
+  const { email, password } = parsed.data;
 
   const db = getDb();
   const lucia = initializeLucia(db);

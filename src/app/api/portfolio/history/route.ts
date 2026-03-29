@@ -279,7 +279,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ dataPoints });
   } catch (err) {
     return NextResponse.json(
-      { error: "Failed to build portfolio history", debug: String(err) },
+      { error: "Failed to build portfolio history" },
       { status: 500 }
     );
   }

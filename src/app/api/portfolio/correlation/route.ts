@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthUser, unauthorizedResponse } from "@/lib/auth-guard";
+import { correlationSymbolsSchema } from "@/lib/validations";
 import YahooFinance from "yahoo-finance2";
 
 export const dynamic = "force-dynamic";
@@ -29,18 +31,15 @@ function pearsonCorrelation(x: number[], y: number[]): number {
 }
 
 export async function GET(request: NextRequest) {
-  const symbolsParam = request.nextUrl.searchParams.get("symbols");
-  if (!symbolsParam) {
-    return NextResponse.json({ error: "symbols required" }, { status: 400 });
-  }
+  const user = await getAuthUser();
+  if (!user) return unauthorizedResponse();
 
-  const symbols = symbolsParam.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
-  if (symbols.length < 2) {
-    return NextResponse.json({ error: "Need at least 2 symbols" }, { status: 400 });
+  const symbolsParam = request.nextUrl.searchParams.get("symbols") || "";
+  const parsed = correlationSymbolsSchema.safeParse(symbolsParam);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid symbols" }, { status: 400 });
   }
-
-  // Cap at 10 symbols to avoid too many requests
-  const limited = symbols.slice(0, 10);
+  const limited = parsed.data;
 
   try {
     const now = new Date();
@@ -92,6 +91,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ symbols: limited, matrix });
   } catch (err) {
-    return NextResponse.json({ error: "Failed to calculate correlation", debug: String(err) }, { status: 500 });
+    console.error("Correlation error:", err);
+    return NextResponse.json({ error: "Failed to calculate correlation" }, { status: 500 });
   }
 }

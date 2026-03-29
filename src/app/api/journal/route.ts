@@ -1,10 +1,9 @@
 import { cookies } from "next/headers";
 import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
+import { journalSchema } from "@/lib/validations";
 import { JournalRepository } from "@/db/repositories/journal";
 export const dynamic = "force-dynamic";
-
-
 
 export async function POST(request: Request) {
   const db = getDb();
@@ -22,15 +21,17 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const symbol = formData.get("symbol") as string;
-  const thesis = formData.get("thesis") as string;
-  const risks = formData.get("risks") as string;
-  const expectedUpside = formData.get("expectedUpside") as string;
-  const reviewDateStr = formData.get("reviewDate") as string;
-
-  if (!symbol) {
-    return new Response("Symbol is required", { status: 400 });
+  const parsed = journalSchema.safeParse({
+    symbol: formData.get("symbol"),
+    thesis: formData.get("thesis"),
+    risks: formData.get("risks"),
+    expectedUpside: formData.get("expectedUpside"),
+    reviewDate: formData.get("reviewDate"),
+  });
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
   }
+  const { symbol, thesis, risks, expectedUpside, reviewDate: reviewDateStr } = parsed.data;
 
   const journalRepo = new JournalRepository(db);
   await journalRepo.addEntry(user.id, {

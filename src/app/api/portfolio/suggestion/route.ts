@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthUser, unauthorizedResponse } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,9 @@ interface HoldingInput {
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return unauthorizedResponse();
+
   try {
     const { holdings, totalValue, totalCost, totalPnL, totalPnLPct, totalDayChange, totalDayChangePct } =
       (await request.json()) as {
@@ -122,7 +126,7 @@ ${holdingsSummary}
     }
   } catch (err) {
     return NextResponse.json(
-      { suggestion: "เกิดข้อผิดพลาด", type: "info", actions: [], error: String(err) },
+      { suggestion: "เกิดข้อผิดพลาด", type: "info", actions: [] },
       { status: 500 }
     );
   }

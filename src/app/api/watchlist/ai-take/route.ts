@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthUser, unauthorizedResponse } from "@/lib/auth-guard";
+import { symbolSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +17,15 @@ async function finnhub(path: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const symbol = request.nextUrl.searchParams.get("symbol");
-  if (!symbol) {
-    return NextResponse.json({ error: "Missing symbol" }, { status: 400 });
+  const user = await getAuthUser();
+  if (!user) return unauthorizedResponse();
+
+  const rawSymbol = request.nextUrl.searchParams.get("symbol");
+  const parsed = symbolSchema.safeParse(rawSymbol);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid symbol" }, { status: 400 });
   }
+  const symbol = parsed.data;
 
   try {
     // Fetch real data from multiple sources in parallel

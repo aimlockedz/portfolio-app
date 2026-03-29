@@ -1,10 +1,9 @@
 import { cookies } from "next/headers";
 import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
+import { watchlistSchema } from "@/lib/validations";
 import { WatchlistRepository } from "@/db/repositories/watchlist";
 export const dynamic = "force-dynamic";
-
-
 
 export async function POST(request: Request) {
   const db = getDb();
@@ -22,13 +21,15 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const symbol = formData.get("symbol") as string;
-  const convictionLevel = parseInt(formData.get("convictionLevel") as string) || 3;
-  const notes = formData.get("notes") as string;
-
-  if (!symbol) {
-    return new Response("Symbol is required", { status: 400 });
+  const parsed = watchlistSchema.safeParse({
+    symbol: formData.get("symbol"),
+    convictionLevel: formData.get("convictionLevel"),
+    notes: formData.get("notes"),
+  });
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
   }
+  const { symbol, convictionLevel, notes } = parsed.data;
 
   const watchlistRepo = new WatchlistRepository(db);
 

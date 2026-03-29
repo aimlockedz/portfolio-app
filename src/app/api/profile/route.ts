@@ -1,10 +1,9 @@
 import { cookies } from "next/headers";
 import { getDb } from "@/db/db";
 import { initializeLucia } from "@/lib/auth";
+import { profileSchema } from "@/lib/validations";
 import { ProfileRepository } from "@/db/repositories/profile";
 export const dynamic = "force-dynamic";
-
-
 
 export async function POST(request: Request) {
   const db = getDb();
@@ -22,8 +21,14 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const displayName = formData.get("displayName") as string;
-  const bio = formData.get("bio") as string;
+  const parsed = profileSchema.safeParse({
+    displayName: formData.get("displayName"),
+    bio: formData.get("bio"),
+  });
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
+  }
+  const { displayName, bio } = parsed.data;
 
   const profileRepo = new ProfileRepository(db);
   
